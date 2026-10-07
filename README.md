@@ -85,12 +85,12 @@ env/fetch-firmware.sh classic      # E7 firmware -> downloads/firmware/ (see bel
 ./emu                              # GUI: Devices -> install -> "Firmware (VPL)"
 env/emu-qwerty-keys.py             # with the emulator closed: PC keyboard -> E7 keys
 ./emu --device RM-626 --install out/rssh.sisx
-DISPLAY=:0 ./emu --device RM-626        # boots Belle; open rSSH from the app menu
+DISPLAY=:0 ./emu --device RM-626 --app rSSH
 env/test-sshd.sh start             # test@127.0.0.1:2222, empty password
 ```
 
 - **Emulator data:** `./emu` keeps all its data in `emu-data/`. The emulated `C:` drive is `emu-data/EKA2L1/data/drives/c/`.
-- **Launching:** start the emulator without `--app` so Belle boots to its home screen; rSSH then returns to the app menu when it exits. With `--app rSSH` there is no home screen to return to, and the emulator looks hung after rSSH exits.
+- **Exiting apps:** when an app exits, EKA2L1 either closes (if started with `--app`) or restarts the emulated phone, and in this EKA2L1 build that restart crashes. So exiting rSSH closes the emulator: start it again with `./emu`. Apps that use the normal Symbian shutdown, like the hello templates, hang instead, because EKA2L1 never completes the framework teardown; rSSH avoids that by ending its process with `User::Exit` after its own clean-up. None of this applies on a real phone.
 - **Debug log:** off by default. Turn it on in *Options → Settings → Debug logging* (or create an empty `C:\Private\E5A1E010\debug-logging.on`). The log, `C:\Private\E5A1E010\rssh-debug.log` (`emu-data/EKA2L1/data/drives/c/Private/E5A1E010/` on the PC), records each step, key presses (never their text) and traffic sizes, and survives crashes. *Settings → Export debug log* copies it to `E:\rSSH\` on a phone.
 - **Default target:** `C:\Data\rssh-target.txt` pre-fills Quick connect.
 - **Test server:** `env/test-sshd.sh` runs a throwaway OpenSSH container that listens **only on 127.0.0.1**, because its `test` account has no password.
