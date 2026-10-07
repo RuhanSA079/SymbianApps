@@ -29,6 +29,9 @@ void rssh_profiles_free(rssh_profile *list, int count);
 int rssh_profile_save(const char *name, const char *host, int port,
                       const char *user);
 void rssh_profile_delete(const char *name);
+
+/* Forget every remembered server host key. 0 if done (or none stored). */
+int rssh_forget_host_keys(void);
 void rssh_session_resize(int cols, int rows);
 /* Typed text, UTF-8. */
 void rssh_session_send_text(const char *utf8, int len);

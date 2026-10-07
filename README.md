@@ -64,7 +64,8 @@ An SSH client for Symbian^3, built on PuTTY 0.85.
   - host keys are confirmed and remembered;
   - password prompts appear in the terminal;
   - Ctrl comes from the keyboard or from *Options → Ctrl + next key*;
-  - *Back* asks before exiting or disconnecting.
+  - *Back* asks before exiting or disconnecting;
+  - *Settings*: debug logging (off by default), export or clear the log, forget all host keys.
 - **Not yet:** port forwarding, key-based authentication from the UI, scrollback, a monospace font, and testing on real hardware.
 - **After upgrading PuTTY** or editing `about.txt`, regenerate the build files with `python3 apps/rssh/tools/gen-mmp.py`.
 
@@ -84,12 +85,13 @@ env/fetch-firmware.sh classic      # E7 firmware -> downloads/firmware/ (see bel
 ./emu                              # GUI: Devices -> install -> "Firmware (VPL)"
 env/emu-qwerty-keys.py             # with the emulator closed: PC keyboard -> E7 keys
 ./emu --device RM-626 --install out/rssh.sisx
-DISPLAY=:0 ./emu --device RM-626 --app rSSH
+DISPLAY=:0 ./emu --device RM-626        # boots Belle; open rSSH from the app menu
 env/test-sshd.sh start             # test@127.0.0.1:2222, empty password
 ```
 
 - **Emulator data:** `./emu` keeps all its data in `emu-data/`. The emulated `C:` drive is `emu-data/EKA2L1/data/drives/c/`.
-- **Trace file:** rSSH writes `C:\Data\rssh-trace.txt` on every run. It records each step, key presses (never their text) and traffic sizes, and survives crashes.
+- **Launching:** start the emulator without `--app` so Belle boots to its home screen; rSSH then returns to the app menu when it exits. With `--app rSSH` there is no home screen to return to, and the emulator looks hung after rSSH exits.
+- **Debug log:** off by default. Turn it on in *Options → Settings → Debug logging* (or create an empty `C:\Private\E5A1E010\debug-logging.on`). The log, `C:\Private\E5A1E010\rssh-debug.log` (`emu-data/EKA2L1/data/drives/c/Private/E5A1E010/` on the PC), records each step, key presses (never their text) and traffic sizes, and survives crashes. *Settings → Export debug log* copies it to `E:\rSSH\` on a phone.
 - **Default target:** `C:\Data\rssh-target.txt` pre-fills Quick connect.
 - **Test server:** `env/test-sshd.sh` runs a throwaway OpenSSH container that listens **only on 127.0.0.1**, because its `test` account has no password.
 - **Key profile:** EKA2L1's default profile maps only a few keys, and the emulator never reports Shift or Ctrl. `env/emu-qwerty-keys.py` and rSSH work around both. `` ` { | } ~ `` still cannot be typed in the emulator.

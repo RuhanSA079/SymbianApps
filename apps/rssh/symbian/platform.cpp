@@ -206,6 +206,7 @@ static void SetHomeL()
         home.Append(priv[i] == '\\' ? '/' : (TUint8)priv[i]);
     home.ZeroTerminate();
     setenv("HOME", gHome, 1);
+    rssh_trace_init(gHome);
     rssh_trace("HOME=%s", gHome);
 }
 
@@ -216,7 +217,6 @@ extern "C" const char *rssh_data_dir(void)
 
 void RsshPlatformInitL()
 {
-    rssh_trace("rSSH starting");
     SetHomeL();
     gTimer = CTimerAO::NewL();
     gCallbacks = CCallbackAO::NewL();

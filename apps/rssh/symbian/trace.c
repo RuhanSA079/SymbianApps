@@ -1,26 +1,42 @@
 /*
- * trace.c: experimental-build tracing to C:\data\rssh-trace.txt. Every line
- * is opened, written and closed immediately, so the file survives a crash
- * and shows the last step reached.
+ * trace.c: rSSH's debug log (Settings -> Debug logging), off by default.
+ * The switch is the presence of <private dir>/debug-logging.on; the log is
+ * <private dir>/rssh-debug.log, appended across runs and trimmed when it
+ * grows past KMaxLog. Each line is opened, written and closed, so the log
+ * survives a crash and shows the last step reached.
  */
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/stat.h>
 #include "rssh_trace.h"
 
+#define KMaxLog (512 * 1024)
+
+static char log_path[160];
+static char flag_path[160];
+static int ready = 0, enabled = 0;
+
+void rssh_trace_init(const char *dir)
+{
+    struct stat st;
+    snprintf(log_path, sizeof(log_path), "%s/rssh-debug.log", dir);
+    snprintf(flag_path, sizeof(flag_path), "%s/debug-logging.on", dir);
+    enabled = stat(flag_path, &st) == 0;
+    ready = 1;
+    if (enabled && stat(log_path, &st) == 0 && st.st_size > KMaxLog)
+        remove(log_path);
+    rssh_trace("---- rSSH started");
+}
+
 void rssh_trace(const char *fmt, ...)
 {
-    static int started = 0;
     FILE *fp;
     va_list ap;
 
-    if (!started) {
-        mkdir("C:/data", 0777);
-        fp = fopen("C:/data/rssh-trace.txt", "w");    /* new file per run */
-        started = 1;
-    } else {
-        fp = fopen("C:/data/rssh-trace.txt", "a");
-    }
+    if (!ready || !enabled)
+        return;
+    fp = fopen(log_path, "a");
     if (!fp)
         return;
     va_start(ap, fmt);
@@ -29,6 +45,27 @@ void rssh_trace(const char *fmt, ...)
     fputc('\n', fp);
     fclose(fp);
 }
+
+int rssh_debug_enabled(void) { return enabled; }
+
+void rssh_debug_set(int on)
+{
+    if (on) {
+        FILE *fp = fopen(flag_path, "w");
+        if (fp)
+            fclose(fp);
+        enabled = 1;
+        rssh_trace("---- debug logging enabled");
+    } else {
+        rssh_trace("---- debug logging disabled");
+        remove(flag_path);
+        enabled = 0;
+    }
+}
+
+const char *rssh_debug_log_path(void) { return log_path; }
+
+void rssh_debug_clear(void) { remove(log_path); }
 
 /*
  * PuTTY relies on assert() (it refuses to build with NDEBUG). P.I.P.S.'s

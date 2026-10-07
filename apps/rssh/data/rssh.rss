@@ -36,8 +36,9 @@ RESOURCE MENU_PANE r_rssh_menu
         MENU_ITEM { command = ERsshCmdSendTab; txt = "Send Tab"; },
         MENU_ITEM { command = ERsshCmdSendCtrlC; txt = "Send Ctrl+C"; },
         MENU_ITEM { command = ERsshCmdSendCtrlD; txt = "Send Ctrl+D"; },
+        MENU_ITEM { command = ERsshCmdSettings; txt = "Settings"; },
         MENU_ITEM { command = ERsshCmdAbout; txt = "About"; },
-        MENU_ITEM { command = EAknCmdExit; txt = "Exit"; }
+        MENU_ITEM { command = ERsshCmdExit; txt = "Exit"; }
         };
     }
 

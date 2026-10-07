@@ -14,7 +14,9 @@ enum TRsshCommand
     ERsshCmdEditProfile,
     ERsshCmdDeleteProfile,
     ERsshCmdStickyCtrl,
-    ERsshCmdAbout
+    ERsshCmdAbout,
+    ERsshCmdExit,      /* our own Exit: Avkon turns EAknCmdExit into EEikCmdExit */
+    ERsshCmdSettings
     };
 
 #endif

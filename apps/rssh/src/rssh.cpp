@@ -23,6 +23,7 @@
 #include <eiklbo.h>
 #include <badesca.h>
 #include <utf.h>
+#include <f32file.h>
 
 #include <rssh.rsg>
 #include "rssh.hrh"
@@ -521,9 +522,9 @@ private:
 class CProfileList : public CCoeControl, public MEikListBoxObserver
 {
 public:
-    static CProfileList *NewL(const TRect &aRect, CRsshAppUi &aAppUi)
+    static CProfileList *NewL(const TRect &aRect, CRsshAppUi &aAppUi, TInt aId)
     {
-        CProfileList *self = new (ELeave) CProfileList(aAppUi);
+        CProfileList *self = new (ELeave) CProfileList(aAppUi, aId);
         CleanupStack::PushL(self);
         self->ConstructL(aRect);
         CleanupStack::Pop(self);
@@ -535,12 +536,7 @@ public:
         delete iItems;
     }
 
-    // Row 0 is "Quick connect"; rows 1.. are profiles, in order added.
-    void ResetL()
-    {
-        iItems->Reset();
-        iItems->AppendL(_L("\tQuick connect\tconnect without saving"));
-    }
+    void ResetL() { iItems->Reset(); }
     void AddRowL(const TDesC &aTitle, const TDesC &aSubtitle)
     {
         HBufC *row = HBufC::NewLC(aTitle.Length() + aSubtitle.Length() + 2);
@@ -576,7 +572,7 @@ public:
     void HandleListBoxEventL(CEikListBox *aListBox, TListBoxEvent aEvent);
 
 private:
-    CProfileList(CRsshAppUi &aAppUi) : iAppUi(aAppUi) {}
+    CProfileList(CRsshAppUi &aAppUi, TInt aId) : iAppUi(aAppUi), iId(aId) {}
     void ConstructL(const TRect &aRect)
     {
         CreateWindowL();
@@ -600,6 +596,7 @@ private:
     CCoeControl *ComponentControl(TInt) const { return iListBox; }
 
     CRsshAppUi &iAppUi;
+    TInt iId;                         // which list: connections or settings
     CAknDoubleStyleListBox *iListBox;
     CDesCArrayFlat *iItems;
 };
@@ -644,8 +641,10 @@ public:
         gView = iView;
         iView->MakeVisible(EFalse);
         rssh_trace("list: NewL");
-        iList = CProfileList::NewL(ClientRect(), *this);
+        iList = CProfileList::NewL(ClientRect(), *this, KListConnections);
         rssh_trace("list: NewL ok");
+        iSettings = CProfileList::NewL(ClientRect(), *this, KListSettings);
+        iSettings->MakeVisible(EFalse);
         iAbout = CAboutView::NewL(ClientRect());
         iAbout->MakeVisible(EFalse);
         iTarget.Copy(_L("user@host"));
@@ -692,6 +691,11 @@ public:
                 RemoveFromStack(iAbout);
             delete iAbout;
         }
+        if (iSettings) {
+            if (iMode == ESettings)
+                RemoveFromStack(iSettings);
+            delete iSettings;
+        }
         gView = NULL;
         gAppUi = NULL;
         RsshPlatformShutdown();
@@ -736,6 +740,16 @@ public:
         iEnded->CallBack();
     }
 
+    enum { KListConnections = 1, KListSettings = 2 };
+
+    void ListItemSelectedL(TInt aList, TInt aIndex)
+    {
+        if (aList == KListSettings)
+            SettingsItemL(aIndex);
+        else
+            OpenItemL(aIndex);
+    }
+
     // From the list: row 0 = quick connect, others = profiles.
     void OpenItemL(TInt aIndex)
     {
@@ -752,7 +766,7 @@ public:
     }
 
 private:
-    enum TMode { EList, ETerminal, EAbout };
+    enum TMode { EList, ETerminal, EAbout, ESettings };
 
     void AddProfileL(const char *aName, const char *aHost, int aPort, const char *aUser)
     {
@@ -787,6 +801,8 @@ private:
         iProfileNames.ResetAndDestroy();
         iProfileTargets.ResetAndDestroy();
         iList->ResetL();
+        // Row 0 is "Quick connect"; rows 1.. are profiles, in directory order.
+        iList->AddRowL(_L("Quick connect"), _L("connect without saving"));
         rssh_profile *list = NULL;
         TInt n = rssh_profiles_list(&list);
         TRAPD(err,
@@ -803,7 +819,8 @@ private:
     CCoeControl *ModeControl(TMode aMode)
     {
         return aMode == ETerminal ? (CCoeControl *)iView :
-               aMode == EAbout ? (CCoeControl *)iAbout : (CCoeControl *)iList;
+               aMode == EAbout ? (CCoeControl *)iAbout :
+               aMode == ESettings ? (CCoeControl *)iSettings : (CCoeControl *)iList;
     }
 
     void SwitchToL(TMode aMode)
@@ -824,6 +841,114 @@ private:
         SwitchToL(EList);
         SetTitleL(_L("rSSH"));
         RefreshProfilesL();
+    }
+
+    // ---- Settings screen ----
+    enum { ESetDebug, ESetLogPath, ESetExport, ESetClear, ESetForgetKeys };
+
+    void ShowSettingsL()
+    {
+        SwitchToL(ESettings);
+        SetTitleL(_L("Settings"));
+        RefreshSettingsL();
+    }
+
+    void RefreshSettingsL()
+    {
+        iSettings->ResetL();
+        iSettings->AddRowL(_L("Debug logging"),
+                           rssh_debug_enabled() ? _L("On") : _L("Off (default)"));
+        HBufC *path = SymbianPathLC(rssh_debug_log_path());
+        iSettings->AddRowL(_L("Debug log location"), *path);
+        CleanupStack::PopAndDestroy(path);
+        iSettings->AddRowL(_L("Export debug log"), _L("copy to E:\\rSSH\\ (mass memory)"));
+        iSettings->AddRowL(_L("Clear debug log"), _L("delete the log file"));
+        iSettings->AddRowL(_L("Forget all host keys"), _L("remembered server keys"));
+        iSettings->DoneL();
+    }
+
+    // "C:/Private/x/file" (P.I.P.S. style) -> "C:\Private\x\file"
+    static HBufC *SymbianPathLC(const char *aPath)
+    {
+        HBufC *p = Utf8ToUnicodeLC(aPath);
+        TPtr ptr = p->Des();
+        for (TInt i = 0; i < ptr.Length(); i++)
+            if (ptr[i] == '/')
+                ptr[i] = '\\';
+        return p;
+    }
+
+    void SettingsItemL(TInt aIndex)
+    {
+        switch (aIndex) {
+        case ESetDebug:
+            rssh_debug_set(!rssh_debug_enabled());
+            break;
+        case ESetLogPath: {
+            HBufC *path = SymbianPathLC(rssh_debug_log_path());
+            HBufC *msg = HBufC::NewLC(path->Length() + 80);
+            msg->Des().Format(_L("Debug log:\n%S\n(app-private; use Export to copy it out)"), path);
+            AskOkL(*msg);
+            CleanupStack::PopAndDestroy(2, path);
+            break;
+        }
+        case ESetExport:
+            ExportDebugLogL();
+            break;
+        case ESetClear:
+            if (AskYesNoL(_L("Delete the debug log?"))) {
+                rssh_debug_clear();
+                AskOkL(_L("Debug log deleted."));
+            }
+            break;
+        case ESetForgetKeys:
+            if (AskYesNoL(_L("Forget all remembered host keys? You will be asked to confirm each server again."))) {
+                if (rssh_forget_host_keys() == 0)
+                    AskOkL(_L("All host keys forgotten."));
+                else
+                    AskOkL(_L("Could not delete the host key file."));
+            }
+            break;
+        default:
+            break;
+        }
+        RefreshSettingsL();
+    }
+
+    // Copy the log out of the private directory to mass memory (E:), or to
+    // C:\Data if there is no E: drive.
+    void ExportDebugLogL()
+    {
+        HBufC *src = SymbianPathLC(rssh_debug_log_path());
+        RFs &fs = iEikonEnv->FsSession();
+        TEntry entry;
+        if (fs.Entry(*src, entry) != KErrNone) {
+            CleanupStack::PopAndDestroy(src);
+            AskOkL(_L("There is no debug log yet. Enable debug logging first."));
+            return;
+        }
+        CFileMan *fm = CFileMan::NewL(fs);
+        CleanupStack::PushL(fm);
+        _LIT(KDestE, "E:\\rSSH\\rssh-debug.log");
+        _LIT(KDestC, "C:\\Data\\rSSH\\rssh-debug.log");
+        TPtrC dest(KDestE);
+        TInt err = fs.MkDirAll(_L("E:\\rSSH\\"));
+        if (err == KErrNone || err == KErrAlreadyExists)
+            err = fm->Copy(*src, dest, CFileMan::EOverWrite);
+        if (err != KErrNone) {
+            dest.Set(KDestC);
+            err = fs.MkDirAll(_L("C:\\Data\\rSSH\\"));
+            if (err == KErrNone || err == KErrAlreadyExists)
+                err = fm->Copy(*src, dest, CFileMan::EOverWrite);
+        }
+        CleanupStack::PopAndDestroy(2, src);
+        rssh_trace("export debug log -> %d", err);
+        TBuf<128> msg;
+        if (err == KErrNone)
+            msg.Format(_L("Debug log exported to\n%S"), &dest);
+        else
+            msg.Format(_L("Export failed (error %d)."), err);
+        AskOkL(msg);
     }
 
     void ShowAboutL()
@@ -975,7 +1100,7 @@ private:
     // or, from the list, exit - asking first either way.
     void BackL()
     {
-        if (iMode == EAbout) {
+        if (iMode == EAbout || iMode == ESettings) {
             ShowListL();
         } else if (iMode == ETerminal) {
             if (rssh_session_active() &&
@@ -1002,6 +1127,7 @@ private:
         TBool term = iMode == ETerminal;
         TBool onProfile = list && iList->CurrentIndex() >= 1;
         aMenuPane->SetItemDimmed(ERsshCmdAbout, !list);
+        aMenuPane->SetItemDimmed(ERsshCmdSettings, !list);
         aMenuPane->SetItemDimmed(ERsshCmdConnect, !list);
         aMenuPane->SetItemDimmed(ERsshCmdAddProfile, !list);
         aMenuPane->SetItemDimmed(ERsshCmdEditProfile, !onProfile);
@@ -1016,9 +1142,11 @@ private:
 
     void HandleCommandL(TInt aCommand)
     {
+        rssh_trace("command 0x%x", aCommand);
         switch (aCommand) {
         case ERsshCmdConnect:       QuickConnectL(); break;
         case ERsshCmdAbout:         ShowAboutL(); break;
+        case ERsshCmdSettings:      ShowSettingsL(); break;
         case ERsshCmdAddProfile:    EditProfileL(0); break;
         case ERsshCmdEditProfile:   EditProfileL(iList->CurrentIndex()); break;
         case ERsshCmdDeleteProfile: DeleteProfileL(iList->CurrentIndex()); break;
@@ -1031,8 +1159,9 @@ private:
         case EAknSoftkeyBack:
             BackL();
             break;
+        case ERsshCmdExit:            // Options -> Exit
         case EAknSoftkeyExit:
-        case EAknCmdExit:             // Options -> Exit
+        case EAknCmdExit:
             if (!rssh_session_active() || AskYesNoL(_L("Disconnect and exit?")))
                 Exit();
             break;
@@ -1084,6 +1213,8 @@ private:
                 iList->SetRect(ClientRect());
             if (iAbout)
                 iAbout->SetRect(ClientRect());
+            if (iSettings)
+                iSettings->SetRect(ClientRect());
         }
     }
 
@@ -1092,6 +1223,7 @@ private:
     CTermView *iView;
     CProfileList *iList;
     CAboutView *iAbout;
+    CProfileList *iSettings;
     CAsyncCallBack *iNotes;
     CAsyncCallBack *iAsk;
     CAsyncCallBack *iEnded;
@@ -1113,7 +1245,7 @@ void CProfileList::HandleListBoxEventL(CEikListBox *aListBox, TListBoxEvent aEve
 {
     if (aEvent == EEventEnterKeyPressed || aEvent == EEventItemSingleClicked ||
         aEvent == EEventItemDoubleClicked)
-        iAppUi.OpenItemL(iListBox->CurrentItemIndex());
+        iAppUi.ListItemSelectedL(iId, iListBox->CurrentItemIndex());
 }
 
 // ---------------------------------------------------------------------------

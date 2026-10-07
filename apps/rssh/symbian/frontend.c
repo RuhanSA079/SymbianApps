@@ -6,6 +6,8 @@
  */
 
 #include <string.h>
+#include <stdio.h>
+#include <sys/stat.h>
 #include "putty.h"
 #include "terminal.h"
 #include "ssh.h"
@@ -687,4 +689,17 @@ int rssh_profile_save(const char *name, const char *host, int port,
 void rssh_profile_delete(const char *name)
 {
     del_settings(name);
+}
+
+int rssh_forget_host_keys(void)
+{
+    /* unix/storage.c keeps them in $HOME/.putty/sshhostkeys */
+    char *path = dupprintf("%s/.putty/sshhostkeys", rssh_data_dir());
+    struct stat st;
+    int ret = 0;
+    if (stat(path, &st) == 0)
+        ret = remove(path);
+    rssh_trace("forget host keys -> %d", ret);
+    sfree(path);
+    return ret;
 }
