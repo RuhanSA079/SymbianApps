@@ -1,0 +1,12 @@
+; Installation package for helloclaude.exe (built with: ./sym env/build.sh apps/helloclaude)
+&EN
+#{"Hello Claude"},(0xE5A1E002),1,0,0
+%{"SymbianApps"}
+:"SymbianApps"
+
+; Symbian^3 product ID (E7, N8, C7, C6-01, ...; also covers Anna/Belle)
+[0x20022E6D],0,0,0,{"S60ProductID"}
+
+"$(EPOCROOT)epoc32\release\gcce\urel\helloclaude.exe"                     -"!:\sys\bin\helloclaude.exe"
+"$(EPOCROOT)epoc32\data\z\resource\apps\helloclaude.rsc"                  -"!:\resource\apps\helloclaude.rsc"
+"$(EPOCROOT)epoc32\data\z\private\10003a3f\import\apps\helloclaude_reg.rsc" -"!:\private\10003a3f\import\apps\helloclaude_reg.rsc"

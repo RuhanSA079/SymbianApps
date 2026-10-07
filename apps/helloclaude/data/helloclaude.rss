@@ -1,0 +1,16 @@
+NAME HCLD
+
+#include <eikon.rh>
+#include <avkon.rh>
+#include <avkon.rsg>
+#include <appinfo.rh>
+
+RESOURCE RSS_SIGNATURE {}
+RESOURCE TBUF { buf = ""; }
+RESOURCE EIK_APP_INFO { cba = R_AVKON_SOFTKEYS_EXIT; }
+
+RESOURCE LOCALISABLE_APP_INFO r_helloclaude_localisable_app_info
+    {
+    short_caption = "Hello Claude";
+    caption_and_icon = CAPTION_AND_ICON_INFO { caption = "Hello Claude"; number_of_icons = 0; };
+    }

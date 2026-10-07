@@ -1,0 +1,26 @@
+// Minimal Avkon GUI app for Symbian^3 (Nokia E7 / N8 / C7 ...).
+// 0xE....... is the unprotected test-UID range: fine for self-signed builds.
+TARGET          helloclaude.exe
+TARGETTYPE      exe
+UID             0x100039CE 0xE5A1E002
+SECUREID        0xE5A1E002
+VENDORID        0
+CAPABILITY      None
+EPOCSTACKSIZE   0x5000
+
+SOURCEPATH      ../src
+SOURCE          helloclaude.cpp
+
+SOURCEPATH      ../data
+START RESOURCE  helloclaude.rss
+HEADER
+TARGETPATH      /resource/apps
+END
+START RESOURCE  helloclaude_reg.rss
+TARGETPATH      /private/10003a3f/import/apps
+END
+
+SYSTEMINCLUDE   /epoc32/include /epoc32/include/mw /epoc32/include/platform
+SYSTEMINCLUDE   /epoc32/include/platform/mw
+
+LIBRARY         euser.lib apparc.lib cone.lib eikcore.lib avkon.lib gdi.lib

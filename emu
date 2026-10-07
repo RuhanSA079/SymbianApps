@@ -1,0 +1,18 @@
+#!/bin/sh
+# Run the EKA2L1 emulator with its data kept in ./emu-data/EKA2L1 (git-ignored).
+#   ./emu                                   GUI
+#   ./emu --listdevices | --listapp
+#   ./emu --device RM-626 --install out/hello.sisx
+#   ./emu --device RM-626 --app hello
+ROOT=$(cd "$(dirname "$0")" && pwd)
+APP="$ROOT/tools/EKA2L1.AppImage"
+[ -x "$APP" ] || { echo "run env/fetch-emulator.sh first" >&2; exit 1; }
+mkdir -p "$ROOT/emu-data"
+# EKA2L1 keeps its data in $XDG_DATA_HOME/EKA2L1 and chdirs there, so make
+# relative paths given on the command line absolute first.
+for a; do
+    shift
+    case "$a" in -*|/*) ;; *) [ -e "$a" ] && a="$(cd "$(dirname "$a")" && pwd)/$(basename "$a")" ;; esac
+    set -- "$@" "$a"
+done
+XDG_DATA_HOME="$ROOT/emu-data" exec "$APP" "$@"

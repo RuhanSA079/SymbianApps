@@ -1,0 +1,153 @@
+/* rssh.rss: rSSH resources (menus and the dialogs used by the UI). */
+NAME RSSH
+
+#include <eikon.rh>
+#include <avkon.rsg>   /* before avkon.rh: its STRUCT defaults use R_AVKON_* */
+#include <avkon.rh>
+#include <avkon.hrh>
+#include <appinfo.rh>
+#include "../src/rssh.hrh"
+
+RESOURCE RSS_SIGNATURE {}
+RESOURCE TBUF { buf = ""; }
+
+RESOURCE EIK_APP_INFO
+    {
+    menubar = r_rssh_menubar;
+    cba = R_AVKON_SOFTKEYS_OPTIONS_BACK;
+    }
+
+RESOURCE MENU_BAR r_rssh_menubar
+    {
+    titles = { MENU_TITLE { menu_pane = r_rssh_menu; } };
+    }
+
+RESOURCE MENU_PANE r_rssh_menu
+    {
+    items =
+        {
+        MENU_ITEM { command = ERsshCmdConnect; txt = "Quick connect"; },
+        MENU_ITEM { command = ERsshCmdAddProfile; txt = "Add connection"; },
+        MENU_ITEM { command = ERsshCmdEditProfile; txt = "Edit"; },
+        MENU_ITEM { command = ERsshCmdDeleteProfile; txt = "Delete"; },
+        MENU_ITEM { command = ERsshCmdDisconnect; txt = "Disconnect"; },
+        MENU_ITEM { command = ERsshCmdStickyCtrl; txt = "Ctrl + next key"; },
+        MENU_ITEM { command = ERsshCmdSendEsc; txt = "Send Esc"; },
+        MENU_ITEM { command = ERsshCmdSendTab; txt = "Send Tab"; },
+        MENU_ITEM { command = ERsshCmdSendCtrlC; txt = "Send Ctrl+C"; },
+        MENU_ITEM { command = ERsshCmdSendCtrlD; txt = "Send Ctrl+D"; },
+        MENU_ITEM { command = ERsshCmdAbout; txt = "About"; },
+        MENU_ITEM { command = EAknCmdExit; txt = "Exit"; }
+        };
+    }
+
+/* "user@host[:port]" */
+RESOURCE DIALOG r_rssh_text_query
+    {
+    flags = EGeneralQueryFlags;
+    buttons = R_AVKON_SOFTKEYS_OK_CANCEL;
+    items =
+        {
+        DLG_LINE
+            {
+            type = EAknCtQuery;
+            id = EGeneralQuery;
+            control = AVKON_DATA_QUERY
+                {
+                layout = EDataLayout;
+                label = "";
+                control = EDWIN { width = 40; maxlength = 255; lines = 1; };
+                };
+            }
+        };
+    }
+
+/* Short Yes/No question (host keys, weak crypto). */
+RESOURCE DIALOG r_rssh_yesno_query
+    {
+    flags = EGeneralQueryFlags;
+    buttons = R_AVKON_SOFTKEYS_YES_NO;
+    items =
+        {
+        DLG_LINE
+            {
+            type = EAknCtQuery;
+            id = EGeneralQuery;
+            control = AVKON_CONFIRMATION_QUERY
+                {
+                layout = EConfirmationQueryLayout;
+                label = "";
+                };
+            }
+        };
+    }
+
+/* Information with an OK button (e.g. connection closed). */
+RESOURCE DIALOG r_rssh_ok_query
+    {
+    flags = EGeneralQueryFlags;
+    buttons = R_AVKON_SOFTKEYS_OK_EMPTY;
+    items =
+        {
+        DLG_LINE
+            {
+            type = EAknCtQuery;
+            id = EGeneralQuery;
+            control = AVKON_CONFIRMATION_QUERY
+                {
+                layout = EConfirmationQueryLayout;
+                label = "";
+                };
+            }
+        };
+    }
+
+/* Long text with Yes/No (currently unused). */
+RESOURCE DIALOG r_rssh_confirm_query
+    {
+    flags = EGeneralQueryFlags | EEikDialogFlagNoBorder | EEikDialogFlagNoShadow;
+    buttons = R_AVKON_SOFTKEYS_YES_NO;
+    items =
+        {
+        DLG_LINE
+            {
+            type = EAknCtPopupHeadingPane;
+            id = EAknMessageQueryHeaderId;
+            control = AVKON_HEADING { };
+            },
+        DLG_LINE
+            {
+            type = EAknCtMessageQuery;
+            id = EAknMessageQueryContentId;
+            control = AVKON_MESSAGE_QUERY { };
+            }
+        };
+    }
+
+/* Long text with OK (errors, notices). */
+RESOURCE DIALOG r_rssh_info_query
+    {
+    flags = EGeneralQueryFlags | EEikDialogFlagNoBorder | EEikDialogFlagNoShadow;
+    buttons = R_AVKON_SOFTKEYS_OK_EMPTY;
+    items =
+        {
+        DLG_LINE
+            {
+            type = EAknCtPopupHeadingPane;
+            id = EAknMessageQueryHeaderId;
+            control = AVKON_HEADING { };
+            },
+        DLG_LINE
+            {
+            type = EAknCtMessageQuery;
+            id = EAknMessageQueryContentId;
+            control = AVKON_MESSAGE_QUERY { };
+            }
+        };
+    }
+
+RESOURCE LOCALISABLE_APP_INFO r_rssh_localisable_app_info
+    {
+    short_caption = "rSSH";
+    caption_and_icon = CAPTION_AND_ICON_INFO { caption = "rSSH"; number_of_icons = 0; };
+    }

@@ -1,0 +1,12 @@
+# downloaded / installed / generated at build time (see env/bootstrap.sh)
+/downloads/
+/sdk/
+/out/
+/keys/
+/tools/
+/emu-data/
+*.log
+.gcce-compiler
+apps/rssh/putty/
+apps/rssh/build/
+/.fresh-test/

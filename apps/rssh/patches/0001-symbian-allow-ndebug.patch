@@ -1,0 +1,16 @@
+Symbian release builds always pass -DNDEBUG; PuTTY must keep its assertions,
+so drop NDEBUG instead of refusing to compile.
+
+--- a/defs.h
++++ b/defs.h
+@@ -11,6 +11,10 @@
+ #ifndef PUTTY_DEFS_H
+ #define PUTTY_DEFS_H
+ 
++#if defined __SYMBIAN32__ && defined NDEBUG
++#undef NDEBUG   /* rSSH: keep PuTTY's assertions in Symbian UREL builds */
++#endif
++
+ #ifdef NDEBUG
+ /*
+  * PuTTY is a security project, so assertions are important - if an

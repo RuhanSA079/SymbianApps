@@ -1,0 +1,20 @@
+/* rssh.hrh: command IDs shared by rssh.rss and the C++ code. */
+#ifndef RSSH_HRH
+#define RSSH_HRH
+
+enum TRsshCommand
+    {
+    ERsshCmdConnect = 0x6001,
+    ERsshCmdDisconnect,
+    ERsshCmdSendEsc,
+    ERsshCmdSendTab,
+    ERsshCmdSendCtrlC,
+    ERsshCmdSendCtrlD,
+    ERsshCmdAddProfile,
+    ERsshCmdEditProfile,
+    ERsshCmdDeleteProfile,
+    ERsshCmdStickyCtrl,
+    ERsshCmdAbout
+    };
+
+#endif

@@ -1,0 +1,12 @@
+; Installation package for hello.exe (built with: ./sym env/build.sh apps/hello)
+&EN
+#{"Hello"},(0xE5A1E001),1,0,0
+%{"SymbianApps"}
+:"SymbianApps"
+
+; Symbian^3 product ID (E7, N8, C7, C6-01, ...; also covers Anna/Belle)
+[0x20022E6D],0,0,0,{"S60ProductID"}
+
+"$(EPOCROOT)epoc32\release\gcce\urel\hello.exe"                     -"!:\sys\bin\hello.exe"
+"$(EPOCROOT)epoc32\data\z\resource\apps\hello.rsc"                  -"!:\resource\apps\hello.rsc"
+"$(EPOCROOT)epoc32\data\z\private\10003a3f\import\apps\hello_reg.rsc" -"!:\private\10003a3f\import\apps\hello_reg.rsc"

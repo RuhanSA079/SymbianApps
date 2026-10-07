@@ -1,0 +1,18 @@
+rSSH 0.1.0 (experimental)
+An SSH client for Symbian^3 phones (Nokia E7, N8, C7, ...; Anna and Belle).
+
+Developer: YOUR NAME HERE
+Source code: YOUR REPOSITORY URL HERE
+
+Built on
+- PuTTY 0.85 by Simon Tatham and contributors: the SSH protocol, cryptography and terminal emulation. Used unmodified apart from a small Symbian patch; MIT licence (see below).
+- rSSH's own Symbian layer: native sockets, event loop, storage, terminal view and user interface.
+
+Built with
+- GCC 14.2 and binutils 2.29.1 for arm-none-symbianelf
+- GnuPoc by Martin Storsjö (Symbian SDK tools for Linux)
+- Nokia Symbian^3 SDK 1.0 and Open C / P.I.P.S.
+
+Thanks to PuTTY for Symbian OS (s2putty) by Petteri Kangaslampi and contributors, which showed the way, and to the EKA2L1 emulator project.
+
+PuTTY licence
