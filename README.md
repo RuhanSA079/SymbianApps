@@ -67,7 +67,7 @@ An SSH client for Symbian^3, built on PuTTY 0.85.
   - *Back* asks before exiting or disconnecting;
   - *Settings*: debug logging (off by default), export or clear the log, forget all host keys.
 - **Not yet:** port forwarding, key-based authentication from the UI, scrollback, a monospace font, and testing on real hardware.
-- **After upgrading PuTTY** or editing `about.txt`, regenerate the build files with `python3 apps/rssh/tools/gen-mmp.py`.
+- **After upgrading PuTTY** regenerate the build files with `python3 apps/rssh/tools/gen-mmp.py`.
 
 ## Self-signed limits
 
