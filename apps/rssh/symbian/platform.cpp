@@ -236,9 +236,12 @@ void RsshPlatformSetModal(TBool aModal)
 
 void RsshPlatformShutdown()
 {
+    rssh_trace("exit: platform: deleting active objects");
     delete gCallbacks;
     gCallbacks = NULL;
     delete gTimer;
     gTimer = NULL;
+    rssh_trace("exit: platform: closing socket server");
     RsshSockShutdown();
+    rssh_trace("exit: platform: done");
 }

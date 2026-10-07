@@ -659,11 +659,32 @@ public:
         iMode = EList;
         RefreshProfilesL();
         rssh_trace("appui: constructed");
+
+        // Test hook (emulator diagnostics): with C:\Data\rssh-autoexit
+        // present, exit by ourselves a few seconds after startup.
+        TEntry entry;
+        if (iEikonEnv->FsSession().Entry(_L("C:\\Data\\rssh-autoexit"), entry) == KErrNone) {
+            iAutoExit = CPeriodic::NewL(CActive::EPriorityStandard);
+            iAutoExit->Start(5000000, 5000000, TCallBack(AutoExit, this));
+            rssh_trace("autoexit armed");
+        }
+    }
+
+    static TInt AutoExit(TAny *aSelf)
+    {
+        CRsshAppUi *self = static_cast<CRsshAppUi *>(aSelf);
+        self->iAutoExit->Cancel();
+        rssh_trace("autoexit: Exit()");
+        self->Exit();
+        return 0;
     }
 
     ~CRsshAppUi()
     {
+        rssh_trace("exit: ~AppUi, closing session");
         rssh_session_close();
+        rssh_trace("exit: session closed");
+        delete iAutoExit;
         delete iNotes;
         delete iAsk;
         delete iEnded;
@@ -698,7 +719,17 @@ public:
         }
         gView = NULL;
         gAppUi = NULL;
+        rssh_trace("exit: controls deleted, platform shutdown");
         RsshPlatformShutdown();
+        rssh_trace("exit: ~AppUi done");
+        // Our own clean-up is complete. The EKA2L1 emulator hangs in the
+        // framework teardown that would follow (no app ever gets back from
+        // EikStart::RunApplication there, and it reports a real E7 machine
+        // UID, so it cannot be detected). Ending the process now is safe on a
+        // phone too: nothing is left to save, and the kernel closes every
+        // handle and server session when the process ends.
+        rssh_trace("exit: User::Exit");
+        User::Exit(KErrNone);
     }
 
     void SetTitleL(const TDesC &aTitle)
@@ -1166,6 +1197,7 @@ private:
                 Exit();
             break;
         case EEikCmdExit:             // from the system: never ask
+            rssh_trace("exit: EEikCmdExit");
             Exit();
             break;
         default:
@@ -1220,6 +1252,7 @@ private:
 
     TMode iMode;
     TBool iShiftDown, iCtrlDown;
+    CPeriodic *iAutoExit;
     CTermView *iView;
     CProfileList *iList;
     CAboutView *iAbout;
@@ -1356,4 +1389,9 @@ private:
 };
 
 LOCAL_C CApaApplication *NewApplication() { return new CRsshApplication; }
-GLDEF_C TInt E32Main() { return EikStart::RunApplication(NewApplication); }
+GLDEF_C TInt E32Main()
+{
+    TInt ret = EikStart::RunApplication(NewApplication);
+    rssh_trace("exit: E32Main returning %d", ret);
+    return ret;
+}
