@@ -1,8 +1,8 @@
 rSSH 0.1.0 (experimental)
 An SSH client for Symbian^3 phones (Nokia E7, N8, C7, ...; Anna and Belle).
 
-Developer: YOUR NAME HERE
-Source code: YOUR REPOSITORY URL HERE
+Developer: RuhanSA079
+Source code: https://github.com/RuhanSA079/SymbianApps
 
 Built on
 - PuTTY 0.85 by Simon Tatham and contributors: the SSH protocol, cryptography and terminal emulation. Used unmodified apart from a small Symbian patch; MIT licence (see below).
