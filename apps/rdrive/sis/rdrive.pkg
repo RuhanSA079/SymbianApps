@@ -1,0 +1,12 @@
+; rDrive installation package (built with: ./sym sh env/build.sh apps/rdrive)
+&EN
+#{"rDrive"},(0xE5A1E020),0,1,0
+%{"SymbianApps"}
+:"SymbianApps"
+
+; Symbian^3 product ID (E7, N8, C7, ...; also covers Anna/Belle)
+[0x20022E6D],0,0,0,{"S60ProductID"}
+
+"$(EPOCROOT)epoc32\release\gcce\urel\rdrive.exe"                      -"!:\sys\bin\rdrive.exe"
+"$(EPOCROOT)epoc32\data\z\resource\apps\rdrive.rsc"                   -"!:\resource\apps\rdrive.rsc"
+"$(EPOCROOT)epoc32\data\z\private\10003a3f\import\apps\rdrive_reg.rsc" -"!:\private\10003a3f\import\apps\rdrive_reg.rsc"

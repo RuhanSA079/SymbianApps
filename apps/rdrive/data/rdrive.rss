@@ -1,0 +1,38 @@
+/* rdrive.rss: rDrive resources. */
+NAME RDRV
+
+#include <eikon.rh>
+#include <avkon.rsg>   /* before avkon.rh: its STRUCT defaults use R_AVKON_* */
+#include <avkon.rh>
+#include <avkon.hrh>
+#include <appinfo.rh>
+#include "../src/rdrive.hrh"
+
+RESOURCE RSS_SIGNATURE {}
+RESOURCE TBUF { buf = ""; }
+
+RESOURCE EIK_APP_INFO
+    {
+    menubar = r_rdrive_menubar;
+    cba = R_AVKON_SOFTKEYS_OPTIONS_EXIT;
+    }
+
+RESOURCE MENU_BAR r_rdrive_menubar
+    {
+    titles = { MENU_TITLE { menu_pane = r_rdrive_menu; } };
+    }
+
+RESOURCE MENU_PANE r_rdrive_menu
+    {
+    items =
+        {
+        MENU_ITEM { command = ERdriveCmdTestHttps; txt = "Test HTTPS"; },
+        MENU_ITEM { command = ERdriveCmdExit; txt = "Exit"; }
+        };
+    }
+
+RESOURCE LOCALISABLE_APP_INFO r_rdrive_localisable_app_info
+    {
+    short_caption = "rDrive";
+    caption_and_icon = CAPTION_AND_ICON_INFO { caption = "rDrive"; number_of_icons = 0; };
+    }

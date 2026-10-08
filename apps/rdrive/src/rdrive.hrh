@@ -1,0 +1,9 @@
+/* rdrive.hrh: command IDs shared by rdrive.rss and the C++ code. */
+#ifndef RDRIVE_HRH
+#define RDRIVE_HRH
+enum TRdriveCommand
+    {
+    ERdriveCmdTestHttps = 0x7001,
+    ERdriveCmdExit
+    };
+#endif

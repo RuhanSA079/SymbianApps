@@ -26,6 +26,8 @@ if grep -qE '^make(\[[0-9]+\])?: \*\*\* |: error: |^\* RCOMP failed|undefined re
     exit 1
 fi
 rm -f "$LOG"
+# Library-only projects (e.g. apps/common) have nothing to package.
+[ -d ../sis ] || { echo "==> built (library, no package)"; exit 0; }
 [ -f /work/keys/selfsigned.key ] || sh /work/env/make-cert.sh
 mkdir -p /work/out
 cd ../sis

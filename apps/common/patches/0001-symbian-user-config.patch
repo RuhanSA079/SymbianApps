@@ -1,0 +1,29 @@
+Symbian builds pick the overrides in apps/common/mbedtls-symbian without
+string-valued -D options, which the Symbian .mmp format cannot pass.
+
+diff -ru a/include/mbedtls/build_info.h b/include/mbedtls/build_info.h
+--- a/include/mbedtls/build_info.h	2026-10-08 10:25:30.561114068 +0200
++++ b/include/mbedtls/build_info.h	2026-10-08 10:25:30.580114240 +0200
+@@ -64,6 +64,9 @@
+  * Allow user to override any previous default.
+  *
+  */
++#if defined(__SYMBIAN32__) && !defined(MBEDTLS_USER_CONFIG_FILE)
++#define MBEDTLS_USER_CONFIG_FILE "rsym_mbedtls_config.h"
++#endif
+ #if defined(MBEDTLS_USER_CONFIG_FILE)
+ #include MBEDTLS_USER_CONFIG_FILE
+ #endif
+diff -ru a/tf-psa-crypto/include/tf-psa-crypto/build_info.h b/tf-psa-crypto/include/tf-psa-crypto/build_info.h
+--- a/tf-psa-crypto/include/tf-psa-crypto/build_info.h	2026-10-08 10:25:30.562114077 +0200
++++ b/tf-psa-crypto/include/tf-psa-crypto/build_info.h	2026-10-08 10:25:30.580114240 +0200
+@@ -115,6 +115,9 @@
+ #else
+ #include "psa/crypto_config.h"
+ #endif
++#if defined(__SYMBIAN32__) && !defined(TF_PSA_CRYPTO_USER_CONFIG_FILE)
++#define TF_PSA_CRYPTO_USER_CONFIG_FILE "rsym_crypto_config.h"
++#endif
+ #if defined(TF_PSA_CRYPTO_USER_CONFIG_FILE)
+ #include TF_PSA_CRYPTO_USER_CONFIG_FILE
+ #endif

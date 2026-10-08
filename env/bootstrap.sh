@@ -34,17 +34,23 @@ else
     ./sym sh env/install-sdk.sh
 fi
 
-step "4/6 PuTTY source for rSSH"
+step "4/6 third-party sources (PuTTY for rSSH, mbedTLS for apps/common)"
 if [ -f apps/rssh/putty/LICENCE ]; then
-    echo "already fetched"
+    echo "PuTTY: already fetched"
 else
     env/fetch-putty-src.sh
+fi
+if [ -f apps/common/mbedtls/LICENSE ]; then
+    echo "mbedTLS: already fetched"
+else
+    env/fetch-mbedtls.sh
 fi
 
 step "5/6 generated build files"
 python3 -I apps/rssh/tools/gen-mmp.py
+python3 -I apps/common/tools/gen-mmp.py
 
-step "6/6 apps"
+step "6/6 apps (apps/common first: other apps link its libraries)"
 for bld in apps/*/group/bld.inf; do
     app=$(dirname "$(dirname "$bld")")
     echo "--- $app"

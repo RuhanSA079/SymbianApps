@@ -10,3 +10,5 @@
 apps/rssh/putty/
 apps/rssh/build/
 /.fresh-test/
+apps/common/mbedtls/
+apps/common/build/
