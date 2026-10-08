@@ -1,10 +1,15 @@
 #!/bin/sh
 # Build, package and self-sign one app. Runs INSIDE the container:
 #   ./sym env/build.sh apps/hello [udeb|urel]
-# Output: out/<pkgname>.sisx (signed with keys/selfsigned.*; created on first use)
+#   SYM_SDK=s60v31 ./sym env/build.sh apps/rssh     (S60 3rd FP1 SDK)
+# Output: out/<pkgname>.sisx (signed with keys/selfsigned.*; created on first
+# use). With SYM_SDK set, the packages come from sis/<SDK>/ and the output is
+# out/<pkgname>_<SDK>.sisx.
 set -e
 APP=${1:?usage: env/build.sh apps/<name> [urel|udeb]}
 CFG=${2:-urel}
+SDK=${SYM_SDK:-symbian3}
+echo "SDK: $SDK ($EPOCROOT)"
 # Apps with prebuilt parts (NetSurf's C libraries) build those first.
 [ -x "/work/$APP/prebuild.sh" ] && "/work/$APP/prebuild.sh"
 cd "/work/$APP/group"
@@ -12,7 +17,7 @@ bldmake bldfiles
 # abld does not notice a compiler switch (GCCE_BIN), so clean when it changes.
 . /opt/symbian/gnupoc/gnupoc-common.sh
 CC_ID=$(arm-none-symbianelf-gcc --version | head -1)
-STAMP=.gcce-compiler
+STAMP=.gcce-compiler-$SDK         # each SDK has its own build tree
 if [ "$(cat $STAMP 2>/dev/null)" != "$CC_ID" ]; then
     abld reallyclean gcce "$CFG" >/dev/null 2>&1 || true
     echo "$CC_ID" > $STAMP
@@ -32,9 +37,16 @@ rm -f "$LOG"
 [ -d ../sis ] || { echo "==> built (library, no package)"; exit 0; }
 [ -f /work/keys/selfsigned.key ] || sh /work/env/make-cert.sh
 mkdir -p /work/out
-cd ../sis
+if [ "$SDK" = symbian3 ]; then
+    cd ../sis
+    SUFFIX=
+else
+    [ -d "../sis/$SDK" ] || { echo "==> built; no sis/$SDK/ packages for this SDK" >&2; exit 1; }
+    cd "../sis/$SDK"
+    SUFFIX=_$SDK
+fi
 for pkg in *.pkg; do
-    name=${pkg%.pkg}
+    name=${pkg%.pkg}$SUFFIX
     # GnuPoc makesis rejects output names shorter than 8 chars, hence the suffix.
     makesis "$pkg" "/work/out/${name}_unsigned.sis"
     signsis "/work/out/${name}_unsigned.sis" "/work/out/$name.sisx" \

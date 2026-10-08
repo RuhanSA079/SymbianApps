@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- NetSurf's globe logo (frontends/gtk/res/netsurf.xpm), redrawn as
+     SVG Tiny for the Symbian app icon. NetSurf is GPLv2. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" baseProfile="tiny"
+     width="88" height="88" viewBox="0 0 132 132">
+  <defs>
+    <radialGradient id="sea" gradientUnits="userSpaceOnUse"
+                    cx="34" cy="26" r="110" fx="34" fy="26">
+      <stop offset="0" stop-color="#bff4ff"/>
+      <stop offset="0.35" stop-color="#6accff"/>
+      <stop offset="0.7" stop-color="#1ba4fe"/>
+      <stop offset="1" stop-color="#0a8cf0"/>
+    </radialGradient>
+  </defs>
+  <circle cx="66" cy="66" r="59" fill="url(#sea)" stroke="#000" stroke-width="6"/>
+  <path d="M35,14 C28,44 28,74 34,88 C40,102 52,114 64,128"
+        fill="none" stroke="#000" stroke-width="4.5" stroke-dasharray="9,7"/>
+  <path d="M10,96 C30,104 60,104 82,99 C100,95 116,86 126,72"
+        fill="none" stroke="#000" stroke-width="4.5" stroke-dasharray="9,7"/>
+  <polygon points="94.0,19.7 97.0,30.8 108.2,28.1 102.4,38.0 112.3,44.0 101.2,47.0 103.9,58.2 94.0,52.4 88.0,62.3 85.0,51.2 73.8,53.9 79.6,44.0 69.7,38.0 80.8,35.0 78.1,23.8 88.0,29.6" fill="#fff"/>
+</svg>

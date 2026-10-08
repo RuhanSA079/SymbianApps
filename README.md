@@ -105,6 +105,49 @@ A port of the [NetSurf](https://www.netsurf-browser.org/) web browser (current g
 - **In EKA2L1:** pages work but load slowly. Each TLS handshake takes 10–40 s there (rDrive's lone request takes about 5 s), and the emulator delivers timer events about once a second. Expect real hardware to be much faster, but it has not been tested yet.
 - **Not yet:** JavaScript (Duktape is in NetSurf's tree, but not built yet); proper fonts (NetSurf's built-in bitmap font is used for now); connection reuse; downloads; certificate-error override; testing on a real phone.
 
+## Older phones: S60 3rd Edition (Nokia E90, E71, N95, ...)
+
+rSSH also builds for S60 3rd Edition FP1 (Symbian OS 9.2). Symbian apps run on newer releases too, so that package should also install on FP2, 5th Edition and Symbian^3 phones.
+
+```sh
+env/fetch-s60v31.sh                      # SDK, Open C and Nokia's pips.sis -> downloads/s60v31/
+./sym sh env/install-sdk-s60v31.sh       # -> sdk/s60v31 (1.2 GB)
+SYM_SDK=s60v31 ./sym sh env/build.sh apps/rssh    # -> out/rssh_s60v31.sisx
+```
+
+- **SDK switch:** `SYM_SDK=s60v31` makes `./sym` use `sdk/s60v31`, and makes `env/build.sh` take its packages from `sis/s60v31/`.
+- **One source for both:** code that needs Symbian^3-only APIs checks `#ifdef SYMBIAN_CRYPTOSPI`, which only the Symbian^3 SDK defines.
+- **P.I.P.S.:** FP1 phones don't have it, so the S60 3rd package embeds Nokia's Symbian-Signed `pips.sis`. The phone's installer skips it where P.I.P.S. is already present.
+
+### Release builds for both
+
+```sh
+env/build-release.sh apps/rssh           # out/release/rssh-<version>-symbian3.sisx
+                                         #             rssh-<version>-s60v3.sisx + SHA256SUMS
+```
+
+- **Choosing SDKs:** pass `symbian3` or `s60v31` after the app to build only one.
+- **Version:** taken from the package header.
+
+### S60 3rd in EKA2L1
+
+```sh
+env/fetch-firmware-e90.sh                # emulator closed; builds an E90 (RA-6) device
+./emu --device RA-6 --install out/release/rssh-0.1.0-s60v3.sisx
+./emu --device RA-6 --app rSSH
+```
+
+- **Why a script and not the install wizard:** EKA2L1's firmware installer can't use the E90's 2007 flash files.
+  - Its blocks aren't padded to 512 bytes.
+  - The core ROM is deflate-compressed.
+  - The language variant (ROFx) points back into ROFS1.
+- **What the script does instead:**
+  - `env/tools/bb5-device.py` builds the device the way the installer would, from Nokia's firmware 400.34.93: `roms/ra-6/SYM.ROM`, the Z: drive, and a `devices.yml` entry.
+  - `env/tools/wsini-fix.py` adds a missing alternate-screen-mode line to the E90's `wsini.ini`. Without it EKA2L1 dereferences a missing entry and crashes when an app starts.
+- **Alternative:** `env/fetch-firmware-s60v3.sh` adds an E71 (RM-346), also S60 3rd FP1, from a ready-made EKA2L1 dump.
+- **Own drives:** both get separate C: and E: drives. Otherwise the 2009 P.I.P.S. libraries from S60 3rd packages would land on the E7's shared E: drive and could shadow its newer ones.
+- **Switching back:** `--device` changes the emulator's default phone; use `--device RM-626` to go back to the E7.
+
 ## Self-signed limits
 
 A self-signed `.sisx` installs on a stock E7 with these limits:

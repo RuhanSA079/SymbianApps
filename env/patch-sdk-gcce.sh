@@ -9,6 +9,10 @@ grep -qF "$MARK" "$MK" && { echo "gcce.mk already patched"; exit 0; }
 cat >> "$MK" <<EOF
 
 $MARK
+# Older SDKs (S60 3rd FP1) do not set GCC_MAJOR; work it out from the compiler.
+ifeq "\$(GCC_MAJOR)" ""
+GCC_MAJOR:=\$(word 1,\$(subst ., ,\$(shell \$(CC) -dumpversion)))
+endif
 ifneq "\$(GCC_MAJOR)" "3"
 # -fno-unit-at-a-time was removed in GCC 4.4; -mapcs (APCS frames) is obsolete.
 REL_OPTIMISATION=-O2

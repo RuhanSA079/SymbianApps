@@ -6,7 +6,7 @@
 /tools/
 /emu-data/
 *.log
-.gcce-compiler
+.gcce-compiler*
 apps/rssh/putty/
 apps/rssh/build/
 /.fresh-test/

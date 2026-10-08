@@ -4,10 +4,13 @@
 #   ./sym abld build gcce urel (from a project's group/ dir: ../../sym ...)
 #   GCCE_BIN=/opt/symbian/csl-gcc/bin ./sym ...  use GCCE 3.4.3 instead of GCC 14
 #   SYM_IMAGE=<image> ./sym ...                  use another env image
+#   SYM_SDK=s60v31 ./sym ...                     use sdk/s60v31 (S60 3rd FP1) instead
+#                                                of sdk/symbian3
 ROOT=$(cd "$(dirname "$0")" && pwd)
 REL=$(pwd | sed "s#^$ROOT##")
 case "$(pwd)/" in "$ROOT"/*) ;; *) echo "run from inside $ROOT" >&2; exit 1;; esac
 [ -t 0 ] && TTY=-it || TTY=-i
 exec docker run --rm $TTY --user "$(id -u):$(id -g)" -e HOME=/tmp ${GCCE_BIN:+-e GCCE_BIN="$GCCE_BIN"} \
+  ${SYM_SDK:+-e EPOCROOT="/opt/symbian/sdk/$SYM_SDK/" -e SYM_SDK="$SYM_SDK"} \
   -v "$ROOT:/work" -v "$ROOT/sdk:/opt/symbian/sdk" -w "/work$REL" \
   "${SYM_IMAGE:-symbian3-env}" "${@:-bash}"

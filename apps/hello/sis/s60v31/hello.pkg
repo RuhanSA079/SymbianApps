@@ -1,0 +1,12 @@
+; Installation package for hello.exe (built with: SYM_SDK=s60v31 ./sym sh env/build.sh apps/hello)
+&EN
+#{"Hello"},(0xE5A1E001),1,0,0
+%{"SymbianApps"}
+:"SymbianApps"
+
+; S60 3rd Edition product ID (also accepted by FP1, FP2, 5th Edition, Symbian^3)
+[0x101F7961],0,0,0,{"S60ProductID"}
+
+"$(EPOCROOT)epoc32\release\gcce\urel\hello.exe"                     -"!:\sys\bin\hello.exe"
+"$(EPOCROOT)epoc32\data\z\resource\apps\hello.rsc"                  -"!:\resource\apps\hello.rsc"
+"$(EPOCROOT)epoc32\data\z\private\10003a3f\import\apps\hello_reg.rsc" -"!:\private\10003a3f\import\apps\hello_reg.rsc"

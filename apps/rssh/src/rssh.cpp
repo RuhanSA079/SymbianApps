@@ -580,9 +580,16 @@ private:
         rssh_trace("list: listbox ConstructL");
         iListBox->ConstructL(this, EAknListBoxSelectionList);
         rssh_trace("list: listbox ok");
+#ifdef SYMBIAN_CRYPTOSPI
         iListBox->CreateScrollBarFrameL(ETrue);
         iListBox->ScrollBarFrame()->SetScrollBarVisibilityL(
             CEikScrollBarFrame::EOff, CEikScrollBarFrame::EAuto);
+#else
+        // S60 3rd (Symbian 9.2): no scroll bar. With one (window-owning or
+        // not), the app's thread blocks right after the list first draws in
+        // the EKA2L1 emulator (E71, E90); not yet checked on a phone. The
+        // lists are short, and the highlight shows the position.
+#endif
         iListBox->SetListBoxObserver(this);
         iItems = new (ELeave) CDesCArrayFlat(4);
         iListBox->Model()->SetItemTextArray(iItems);
@@ -643,8 +650,10 @@ public:
         rssh_trace("list: NewL");
         iList = CProfileList::NewL(ClientRect(), *this, KListConnections);
         rssh_trace("list: NewL ok");
-        iSettings = CProfileList::NewL(ClientRect(), *this, KListSettings);
-        iSettings->MakeVisible(EFalse);
+        // The settings list is created when it is shown (SwitchToL): a hidden
+        // second list box stops S60 3rd (Symbian 9.2) apps from ever drawing.
+        iDropSettings = new (ELeave) CAsyncCallBack(TCallBack(DropSettings, this),
+                                                    CActive::EPriorityStandard);
         iAbout = CAboutView::NewL(ClientRect());
         iAbout->MakeVisible(EFalse);
         iTarget.Copy(_L("user@host"));
@@ -712,6 +721,7 @@ public:
                 RemoveFromStack(iAbout);
             delete iAbout;
         }
+        delete iDropSettings;
         if (iSettings) {
             if (iMode == ESettings)
                 RemoveFromStack(iSettings);
@@ -858,13 +868,32 @@ private:
     {
         if (iMode == aMode)
             return;
+        if (aMode == ESettings && !iSettings) {
+            iDropSettings->Cancel();
+            iSettings = CProfileList::NewL(ClientRect(), *this, KListSettings);
+        }
         CCoeControl *from = ModeControl(iMode), *to = ModeControl(aMode);
         RemoveFromStack(from);
         from->MakeVisible(EFalse);
         to->MakeVisible(ETrue);
         AddToStackL(to);
+        TMode old = iMode;
         iMode = aMode;
         to->DrawDeferred();
+        // Leaving Settings: delete its list once the current event (which may
+        // come from that list's own observer callback) has returned.
+        if (old == ESettings)
+            iDropSettings->CallBack();
+    }
+
+    static TInt DropSettings(TAny *aSelf)
+    {
+        CRsshAppUi *self = static_cast<CRsshAppUi *>(aSelf);
+        if (self->iMode != ESettings) {
+            delete self->iSettings;
+            self->iSettings = NULL;
+        }
+        return 0;
     }
 
     void ShowListL()
@@ -886,6 +915,8 @@ private:
 
     void RefreshSettingsL()
     {
+        if (!iSettings)
+            return;
         iSettings->ResetL();
         iSettings->AddRowL(_L("Debug logging"),
                            rssh_debug_enabled() ? _L("On") : _L("Off (default)"));
@@ -1256,7 +1287,8 @@ private:
     CTermView *iView;
     CProfileList *iList;
     CAboutView *iAbout;
-    CProfileList *iSettings;
+    CProfileList *iSettings;          // only while the Settings screen is shown
+    CAsyncCallBack *iDropSettings;
     CAsyncCallBack *iNotes;
     CAsyncCallBack *iAsk;
     CAsyncCallBack *iEnded;
@@ -1276,7 +1308,12 @@ private:
 
 void CProfileList::HandleListBoxEventL(CEikListBox *aListBox, TListBoxEvent aEvent)
 {
-    if (aEvent == EEventEnterKeyPressed || aEvent == EEventItemSingleClicked ||
+    if (aEvent == EEventEnterKeyPressed ||
+#ifdef SYMBIAN_CRYPTOSPI
+        // touch list event (S60 5th Edition on); only the Symbian^3 SDK
+        // (9.5+, which defines SYMBIAN_CRYPTOSPI) has it, not S60 3rd's 9.2
+        aEvent == EEventItemSingleClicked ||
+#endif
         aEvent == EEventItemDoubleClicked)
         iAppUi.ListItemSelectedL(iId, iListBox->CurrentItemIndex());
 }

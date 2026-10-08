@@ -66,8 +66,17 @@ extern "C" void noise_get_heavy(void (*func)(void *, int))
 {
     TBuf8<64> buf;
     buf.SetMax();
+#ifdef SYMBIAN_CRYPTOSPI
+    /* Symbian^3: fails (rather than returning weak data) if the generator
+     * has not gathered enough entropy yet. */
     rssh_trace("noise_get_heavy: SecureRandomL...");
     TRAPD(err, TRandom::SecureRandomL(buf));
+#else
+    /* S60 3rd Edition (Symbian 9.2) has no SecureRandomL; Random() reads
+     * the same system random server. */
+    rssh_trace("noise_get_heavy: Random...");
+    TRAPD(err, TRandom::Random(buf));
+#endif
     rssh_trace("noise_get_heavy: err=%d", err);
     if (err != KErrNone)
         rssh_ui_fatal("Could not get random numbers from the system "
