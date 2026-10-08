@@ -28,6 +28,14 @@ static mbedtls_x509_crt g_ca;
 static int g_inited = 0;
 static const char *g_ca_pem = rsym_ca_google_pem;
 
+static char g_untrusted_host[128];      /* certificates not checked for this host */
+
+void rsym_https_allow_untrusted(const char *host)
+{
+    strncpy(g_untrusted_host, host ? host : "", sizeof(g_untrusted_host) - 1);
+    g_untrusted_host[sizeof(g_untrusted_host) - 1] = 0;
+}
+
 void rsym_https_set_ca(const char *pem)
 {
     if (!g_inited && pem)
@@ -359,7 +367,13 @@ int rsym_https_request(const rsym_http_request *req, rsym_http_response *resp)
             set_error(resp, "TLS configuration failed", err);
             goto out;
         }
-        mbedtls_ssl_conf_authmode(&conf, MBEDTLS_SSL_VERIFY_REQUIRED);
+        if (g_untrusted_host[0] && !strcasecmp(req->host, g_untrusted_host)) {
+            /* the user's own server with a self-signed certificate */
+            mbedtls_ssl_conf_authmode(&conf, MBEDTLS_SSL_VERIFY_NONE);
+            rsym_log("https: certificate not checked for %s (as set)", req->host);
+        } else {
+            mbedtls_ssl_conf_authmode(&conf, MBEDTLS_SSL_VERIFY_REQUIRED);
+        }
         mbedtls_ssl_conf_ca_chain(&conf, &g_ca, NULL);
         mbedtls_ssl_conf_read_timeout(&conf, (uint32_t)bio.timeout_ms);
         if ((err = mbedtls_ssl_setup(&ssl, &conf)) != 0 ||
@@ -471,7 +485,9 @@ int rsym_https_request(const rsym_http_request *req, rsym_http_response *resp)
                     snprintf(resp->error, sizeof(resp->error), "Out of memory");
                     goto out;
                 }
-                if (sscanf(hdrbuf, "HTTP/%*d.%*d %d", &resp->status) != 1) {
+                /* "ICY 200 OK": SHOUTcast v1 radio servers */
+                if (sscanf(hdrbuf, "HTTP/%*d.%*d %d", &resp->status) != 1 &&
+                    sscanf(hdrbuf, "ICY %d", &resp->status) != 1) {
                     snprintf(resp->error, sizeof(resp->error), "Not an HTTP response");
                     goto out;
                 }

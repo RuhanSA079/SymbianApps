@@ -26,6 +26,7 @@ UID             0 0xE5A1E010
 MACRO           HAVE_CMAKE_H
 
 USERINCLUDE     ../symbian ../putty ../putty/terminal ../putty/charset ../putty/generated
+USERINCLUDE     ../../common/net
 SYSTEMINCLUDE   ../symbian/sysinclude /epoc32/include/stdapis /epoc32/include
 """]
 for d, files in bydir.items():
@@ -47,7 +48,7 @@ CAPABILITY      NetworkServices
 EPOCSTACKSIZE   0x14000
 EPOCHEAPSIZE    0x10000 0x1000000
 
-USERINCLUDE     ../symbian ../src
+USERINCLUDE     ../symbian ../src ../../common/net
 SYSTEMINCLUDE   /epoc32/include /epoc32/include/mw /epoc32/include/platform
 SYSTEMINCLUDE   /epoc32/include/platform/mw /epoc32/include/stdapis
 
@@ -65,6 +66,9 @@ SOURCE          platform.cpp
 SOURCE          sock.cpp
 SOURCEPATH      ../src
 SOURCE          rssh.cpp
+// the remote debug log, compiled in (rSSH does not link rsym_net.lib)
+SOURCEPATH      ../../common/net
+SOURCE          rsym_rlog.cpp
 
 STATICLIBRARY   rssh_core.lib
 LIBRARY         euser.lib apparc.lib cone.lib eikcore.lib avkon.lib

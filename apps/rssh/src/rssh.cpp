@@ -31,6 +31,7 @@
 #include "rssh_session.h"
 #include "rssh_platform.h"
 #include "rssh_trace.h"
+#include "rsym_rlog.h"
 #include "about_text.h"
 
 const TUid KUidRssh = { TInt32(0xE5A1E010) };
@@ -656,6 +657,7 @@ public:
                                                     CActive::EPriorityStandard);
         iAbout = CAboutView::NewL(ClientRect());
         iAbout->MakeVisible(EFalse);
+        iSettingsTick = CPeriodic::NewL(CActive::EPriorityStandard);
         iTarget.Copy(_L("user@host"));
         ReadDefaultTarget();
         iNotes = new (ELeave) CAsyncCallBack(TCallBack(ShowNotes, this),
@@ -694,6 +696,7 @@ public:
         rssh_session_close();
         rssh_trace("exit: session closed");
         delete iAutoExit;
+        delete iSettingsTick;
         delete iNotes;
         delete iAsk;
         delete iEnded;
@@ -739,6 +742,7 @@ public:
         // phone too: nothing is left to save, and the kernel closes every
         // handle and server session when the process ends.
         rssh_trace("exit: User::Exit");
+        rsym_rlog_flush(1000);
         User::Exit(KErrNone);
     }
 
@@ -882,8 +886,10 @@ private:
         to->DrawDeferred();
         // Leaving Settings: delete its list once the current event (which may
         // come from that list's own observer callback) has returned.
-        if (old == ESettings)
+        if (old == ESettings) {
+            iSettingsTick->Cancel();
             iDropSettings->CallBack();
+        }
     }
 
     static TInt DropSettings(TAny *aSelf)
@@ -904,13 +910,27 @@ private:
     }
 
     // ---- Settings screen ----
-    enum { ESetDebug, ESetLogPath, ESetExport, ESetClear, ESetForgetKeys };
+    enum { ESetDebug, ESetLogPath, ESetExport, ESetClear,
+           ESetRemote, ESetRemoteHost, ESetRemotePort, ESetForgetKeys };
 
     void ShowSettingsL()
     {
         SwitchToL(ESettings);
         SetTitleL(_L("Settings"));
         RefreshSettingsL();
+        iSettingsTick->Cancel();
+        iSettingsTick->Start(2000000, 2000000, TCallBack(SettingsTick, this));
+    }
+
+    // The remote log connects in the background: show its progress.
+    static TInt SettingsTick(TAny *aSelf)
+    {
+        CRsshAppUi *self = static_cast<CRsshAppUi *>(aSelf);
+        char status[96];
+        rsym_rlog_status(status, sizeof status);
+        if (self->iMode == ESettings && self->iRemoteStatus != TPtrC8((const TUint8 *)status))
+            TRAP_IGNORE(self->RefreshSettingsL());
+        return 0;
     }
 
     void RefreshSettingsL()
@@ -925,6 +945,19 @@ private:
         CleanupStack::PopAndDestroy(path);
         iSettings->AddRowL(_L("Export debug log"), _L("copy to E:\\rSSH\\ (mass memory)"));
         iSettings->AddRowL(_L("Clear debug log"), _L("delete the log file"));
+        char status[96];
+        rsym_rlog_status(status, sizeof status);
+        iRemoteStatus.Copy(TPtrC8((const TUint8 *)status));
+        HBufC *text = Utf8ToUnicodeLC(status);
+        iSettings->AddRowL(_L("Remote debug log"), *text);
+        CleanupStack::PopAndDestroy(text);
+        text = Utf8ToUnicodeLC(rsym_rlog_host());
+        iSettings->AddRowL(_L("Remote debug host"),
+                           text->Length() ? *text : _L("not set (IP address of the log server)"));
+        CleanupStack::PopAndDestroy(text);
+        TBuf<16> port;
+        port.AppendNum(rsym_rlog_port());
+        iSettings->AddRowL(_L("Remote debug port"), port);
         iSettings->AddRowL(_L("Forget all host keys"), _L("remembered server keys"));
         iSettings->DoneL();
     }
@@ -963,6 +996,28 @@ private:
                 AskOkL(_L("Debug log deleted."));
             }
             break;
+        case ESetRemote:
+            if (!rsym_rlog_enabled() && !rsym_rlog_host()[0] && !EditRemoteHostL())
+                break;
+            rsym_rlog_configure(!rsym_rlog_enabled(), NULL, 0);
+            break;
+        case ESetRemoteHost:
+            EditRemoteHostL();
+            break;
+        case ESetRemotePort: {
+            TBuf<16> text;
+            text.AppendNum(rsym_rlog_port());
+            if (!QueryTextL(_L("Remote debug port (default 7865)"), text))
+                break;
+            TLex lex(text);
+            TInt port;
+            if (lex.Val(port) != KErrNone || port <= 0 || port > 65535) {
+                AskOkL(_L("The port must be a number from 1 to 65535."));
+                break;
+            }
+            rsym_rlog_configure(rsym_rlog_enabled(), NULL, port);
+            break;
+        }
         case ESetForgetKeys:
             if (AskYesNoL(_L("Forget all remembered host keys? You will be asked to confirm each server again."))) {
                 if (rssh_forget_host_keys() == 0)
@@ -975,6 +1030,21 @@ private:
             break;
         }
         RefreshSettingsL();
+    }
+
+    // Ask for the log server's address. EFalse if cancelled.
+    TBool EditRemoteHostL()
+    {
+        HBufC *cur = Utf8ToUnicodeLC(rsym_rlog_host());
+        TBuf<64> text(cur->Left(64));
+        CleanupStack::PopAndDestroy(cur);
+        if (!QueryTextL(_L("Remote debug host (log server IP address)"), text))
+            return EFalse;
+        text.TrimAll();
+        TBuf8<200> host;        // room for UTF-8 and PtrZ's terminator
+        CnvUtfConverter::ConvertFromUnicodeToUtf8(host, text);
+        rsym_rlog_configure(rsym_rlog_enabled(), (const char *)host.PtrZ(), 0);
+        return text.Length() > 0;
     }
 
     // Copy the log out of the private directory to mass memory (E:), or to
@@ -1284,6 +1354,8 @@ private:
     TMode iMode;
     TBool iShiftDown, iCtrlDown;
     CPeriodic *iAutoExit;
+    CPeriodic *iSettingsTick;         // refreshes the remote log status
+    TBuf8<96> iRemoteStatus;          // as last shown
     CTermView *iView;
     CProfileList *iList;
     CAboutView *iAbout;

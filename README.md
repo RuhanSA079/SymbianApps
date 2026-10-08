@@ -17,7 +17,7 @@ The script runs these steps, skipping any that are already done, so it is safe t
 1. Download the SDK zip (866 MB, MD5-checked) into `downloads/`.
 2. Build the `symbian3-env` image. The first build takes 30–40 minutes, mostly spent compiling GCC.
 3. Unpack and patch the SDK into `sdk/symbian3` (2.5 GB).
-4. Fetch third-party sources, each checked against a pinned commit, signature or SHA-256: PuTTY 0.85 for rSSH; mbedTLS and cJSON for `apps/common`; NetSurf (git, pinned in `env/netsurf.lock`), expat, libpng and libjpeg for NetSurf.
+4. Fetch third-party sources, each checked against a pinned commit, signature or SHA-256: PuTTY 0.85 for rSSH; mbedTLS and cJSON for `apps/common`; minimp3 for rInternetRadio; NetSurf (git, pinned in `env/netsurf.lock`), expat, libpng and libjpeg for NetSurf.
 5. Generate build files. For NetSurf this includes one Linux build of it in a throwaway Ubuntu container (about 10 minutes), which produces its generated sources.
 6. Build every app in `apps/`. Signed packages go to `out/*.sisx`.
 
@@ -45,12 +45,17 @@ env/Dockerfile                 toolchain image (GnuPoc + GCC 14 + GCCE 3.4.3)
 env/bootstrap.sh               everything above in one go
 env/*.sh, *.py, fix-perl.pl    fetch / install / build / signing / emulator helpers
 apps/common/                   shared static libraries: rsym_mbedtls.lib (mbedTLS 4.1.1),
-                               rsym_net.lib (RSocket TCP, HTTPS client, cJSON, debug log)
+                               rsym_net.lib (RSocket TCP, HTTPS client, cJSON, debug log,
+                               remote debug log), rsym_audio.lib + rsym_mp3.lib (audio/:
+                               MP3 stream player, minimp3; minimp3/ fetched)
 apps/rdrive/                   rDrive: Google Drive client (work in progress)
 apps/netsurf/                  NetSurf browser: symbian/ (app, fetcher, display surface),
                                patches/ (applied to NetSurf), tools/, data/;
                                src/, expat/, libpng/, libjpeg/ (fetched)
+apps/rinternetradio/           rInternetRadio: src/ (app), data/, prebuild.sh
+apps/rjellyfin/                rJellyfin: Jellyfin client (music), src/, data/, prebuild.sh
 env/test-sshd/                 throwaway SSH server for testing rSSH
+env/test-jellyfin.sh           throwaway Jellyfin server (with test music) for rJellyfin
 sym, emu                       wrappers: build container, EKA2L1 emulator
 ```
 
@@ -71,7 +76,7 @@ An SSH client for Symbian^3, built on PuTTY 0.85.
   - password prompts appear in the terminal;
   - Ctrl comes from the keyboard or from *Options → Ctrl + next key*;
   - *Back* asks before exiting or disconnecting;
-  - *Settings*: debug logging (off by default), export or clear the log, forget all host keys.
+  - *Settings*: debug logging (off by default), export or clear the log, the [remote debug log](#remote-debug-log), forget all host keys.
 - **Not yet:** port forwarding, key-based authentication from the UI, scrollback, a monospace font, and testing on real hardware.
 - **After upgrading PuTTY** regenerate the build files with `python3 apps/rssh/tools/gen-mmp.py`.
 
@@ -91,12 +96,13 @@ A port of the [NetSurf](https://www.netsurf-browser.org/) web browser (current g
   - NetSurf's framebuffer frontend draws into a libnsfb surface backed by an ordinary bitmap, which the Avkon app (`apps/netsurf/symbian/nsapp.cpp`) shows. An active object runs NetSurf one step at a time, so there is no blocking main loop.
   - Fetching uses `apps/common`'s HTTP(S) client (native sockets and mbedTLS, TLS 1.3) on worker threads, in place of curl. Certificates are checked against NetSurf's CA bundle, which comes from Mozilla's.
   - Changes to NetSurf itself are small, in `apps/netsurf/patches/`. After editing `apps/netsurf/src`, regenerate the patches with `apps/netsurf/tools/mkpatch.sh netsurf libnsfb`.
-- **App icon:** NetSurf's own globe logo. `prebuild.sh` converts `frontends/gtk/res/netsurf.xpm` into an 88×88 bitmap with a soft mask (`tools/gen-icon.py`), and `mifconv` packs it into `netsurf_aif.mif`/`.mbm`.
+- **App icon:** `data/netsurf-svgrepo-com.svg`, from [SVG Repo](https://www.svgrepo.com/). `prebuild.sh` puts it into `netsurf_aif.mif` with `mifconv`, unchanged: GnuPoc's `mifconv` cannot encode SVG to the binary SVG-T format, but the phone and EKA2L1 both read plain SVG. It must stay within SVG Tiny (no arcs in paths, for example), which the phone's icon engine reads; EKA2L1's app list shows only SVG icons, not bitmap ones. rSSH's icon, `apps/rssh/data/ssh-svgrepo-com.svg` (also from SVG Repo), is packed the same way by `apps/rssh/prebuild.sh`.
 - **Building:** NetSurf and its libraries are not built by abld. abld names object files by file name only, and NetSurf has many files with the same name. Instead, `apps/netsurf/prebuild.sh`, which `env/build.sh` runs first, compiles them with abld's exact GCC flags into `ns_*.lib` archives that the `.mmp` links.
 - **Using it:**
   - Tap a link to click it; drag on the page to scroll.
   - The toolbar has back, history, forward, stop, reload and the address bar.
-  - *Options*: go to address (or search), back, forward, reload, stop, home page, debug log, About, Exit.
+  - *Options*: go to address (or search), back, forward, reload, stop, home page, screen orientation, Settings, About, Exit.
+  - *Options → Settings* is a full-screen page: home page, zoom, text size, load images, block adverts, Do Not Track, screen orientation, the debug log (on/off, location, export to `E:\NetSurf\`, clear) and the [remote debug log](#remote-debug-log). Browsing options are saved to `X:\private\E5A1E030\Choices`, which is read over the defaults in `res/Choices`. Zoom applies at once; text size and images apply when you leave Settings (the page reloads).
   - *Options → Screen orientation*: landscape (the default, for the E7's keyboard), portrait or automatic. The choice is remembered.
   - The keyboard types into pages and the address bar, including Ctrl+C, Ctrl+V and other Ctrl shortcuts.
 - **Testing:**
@@ -104,6 +110,56 @@ A port of the [NetSurf](https://www.netsurf-browser.org/) web browser (current g
   - With the debug log on, the app writes `netsurf-debug.log` and NetSurf's own `netsurf.log` to `X:\private\E5A1E030\` on the drive NetSurf is installed on. In EKA2L1 that is usually `emu-data/EKA2L1/data/drives/e/private/E5A1E030/`.
 - **In EKA2L1:** pages work but load slowly. Each TLS handshake takes 10–40 s there (rDrive's lone request takes about 5 s), and the emulator delivers timer events about once a second. Expect real hardware to be much faster, but it has not been tested yet.
 - **Not yet:** JavaScript (Duktape is in NetSurf's tree, but not built yet); proper fonts (NetSurf's built-in bitmap font is used for now); connection reuse; downloads; certificate-error override; testing on a real phone.
+
+## rInternetRadio
+
+Internet radio for Symbian^3: MP3 streams over HTTP or HTTPS, found through the [radio-browser.info](https://www.radio-browser.info/) directory.
+
+- **Using it:**
+  - The start screen lists your favourites, with *Search stations* (by name) and *Top stations* (the directory's most played MP3 stations) at the top. A few SomaFM channels are there on first run.
+  - The first row always shows what is playing (station, song title, bitrate, volume). Select it to stop, or to play the last station again.
+  - *Options*: play, stop, add to or remove from favourites, add a station by address (a stream, `.pls` or `.m3u`), volume, Settings (volume, screen orientation — landscape, portrait or automatic, remembered — debug log, [remote debug log](#remote-debug-log)), About.
+  - Volume: left/right keys, the phone's volume keys or *Options*. It keeps playing in the background.
+- **How it works:**
+  - The player is shared with rJellyfin, in `apps/common/audio`. In `radio_engine.cpp`, a worker thread fetches the stream with `apps/common`'s HTTP(S) client, follows redirects and playlists, and takes out the ICY metadata (the song title). It decodes the MP3 with [minimp3](https://github.com/lieff/minimp3) (CC0; `env/fetch-minimp3.sh`, pinned) and queues about 1.5 s of PCM. Playback starts once 1 s is buffered. `audio_out.h` plays the PCM on the UI thread through `CMdaAudioOutputStream`.
+  - `src/rinternetradio.cpp`: the Avkon UI. It reads the volume keys through RemCon. Directory searches run on a worker thread and are parsed with cJSON.
+  - minimp3 decodes in floating point, which is far too slow with soft-float library calls. `apps/common/prebuild.sh` therefore builds it as `rsym_mp3.lib` with VFP code (`-mfloat-abi=softfp -mfpu=vfp`), because abld always adds `-msoft-float` after an `.mmp`'s own options.
+  - HTTPS streams are checked against Mozilla's root certificates (NetSurf's copy, installed with the app).
+- **Testing:** `C:\Data\rinternetradio-autotest.txt` with a stream URL on its first line plays it at start; `search:<name>` searches the directory instead. In EKA2L1 a 128 kbps SomaFM stream decodes faster than real time and plays without dropouts.
+- **Not yet:** AAC, Ogg Vorbis and Opus streams (many stations use AAC; the directory search shows only MP3 stations for now); HLS; sleep timer; testing on a real phone.
+
+## rJellyfin
+
+A client for a [Jellyfin](https://jellyfin.org/) media server: sign in, browse the libraries with their artwork, and play music. Video is not supported yet.
+
+- **Using it:**
+  - First, set the server address (for example `http://192.168.1.10:8096`) and the user name, then *Sign in*. The password is asked for each time and never stored; the app keeps only the token the server gives it.
+  - Browse *Libraries*. A music library has *Albums*, *Album artists* and *Songs*. Other libraries, playlists and folders open as they are. A list shows 100 items at a time, with *Load more* at the end.
+  - Selecting a song plays it and then the rest of that list (an album in track order). The first row shows what is playing, with the time, the artist and the position in the queue. Select it to stop, or to play again.
+  - *Options*: next and previous track, volume, Settings, About. Volume and track skipping also work with the phone's volume keys and with headset buttons.
+  - *Settings*: sign out, volume, screen orientation, *Accept any certificate*, the debug log and the [remote debug log](#remote-debug-log). *Accept any certificate* is for an `https://` server with a self-signed certificate: the connection is still encrypted, but not checked.
+- **How it works:**
+  - Jellyfin's REST API, as JSON. Every request carries a `MediaBrowser` authorization header with the token and a device ID.
+  - Artwork is fetched one image at a time, already resized by the server to the list's icon size. The phone's own image decoders (`CImageDecoder`) decode it.
+  - Music comes from `/Audio/<id>/universal`, asking for MP3. MP3 files are sent as they are; FLAC, AAC, Opus and so on are converted by the server. They play through the player in `apps/common/audio`. Its *finished* state, and the audio output's "drained" callback, start the next track once the last one has been heard.
+- **Testing:** `env/test-jellyfin.sh start` runs Jellyfin 10.10.7 in Docker on `127.0.0.1:8096`. On first start it creates user `test` (password `test`) and a Music library with an album of test tones: two FLAC tracks and one MP3, with a cover. `C:\Data\rjellyfin-autotest.txt` with `server=`, `user=` and `password=` lines signs in at start; `play=1` then plays the first album. In EKA2L1 it signs in, browses, shows the artwork and plays the whole album, FLAC (converted) and MP3.
+- **Not yet:** video (the E7's player wants an MP4 it can stream, so this probably needs a conversion on the server side); seeking; telling the server what is playing; testing on a real phone.
+
+## Remote debug log
+
+rSSH, NetSurf, rInternetRadio, rJellyfin (and rDrive, through `rsym_log`) can send their debug log over the network to a PC as it is written, which is the easiest way to follow what happens on a real phone.
+
+```sh
+env/rlog-server.py                 # on the PC: listens on port 7865, prints this machine's IP
+```
+
+On the phone, in the app's *Settings*, set *Remote debug host* to the PC's IP address, leave *Remote debug port* at 7865, and turn *Remote debug log* on. Lines appear in the terminal and are saved to `out/rlog/<app>-<date>.log`. In EKA2L1 the PC is `127.0.0.1`.
+
+- **Independent of the file log:** the remote log works whether or not *Debug log* is on. With it on at start-up, NetSurf also sends its own verbose log (lines starting `ns`).
+- **Settings file:** `X:\private\<SID>\remote-debug.cfg`, keys `remote-debug`, `remote-debug-host`, `remote-debug-port`. Writing it into the emulator's drive is a quick way to turn it on there.
+- **How it works:** `apps/common/net/rsym_rlog.cpp` queues lines (from any thread) into a 32 KB buffer that a background thread sends over TCP, reconnecting every 5 s while the server cannot be reached. When the buffer is full, newer lines are dropped and the server is told how many. It starts one network connection and keeps it, so a phone set to *Always ask* asks for an access point only once.
+- **Protocol:** plain text, one line per log line; each connection starts with `#rlog1 app=<name>`. `nc -lk 7865` works as a bare-bones server.
+- **Server options:** `--port`, `--bind`, `--grep REGEX` (print only matching lines; the saved file keeps everything), `--no-save`, `--log-dir`.
 
 ## Older phones: S60 3rd Edition (Nokia E90, E71, N95, ...)
 

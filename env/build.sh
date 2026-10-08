@@ -27,7 +27,9 @@ echo "compiler: $CC_ID"
 # a stale binary from an earlier build would be packaged.
 LOG=$(mktemp)
 abld build gcce "$CFG" 2>&1 | tee "$LOG"
-if grep -qE '^make(\[[0-9]+\])?: \*\*\* |: error: |^\* RCOMP failed|undefined reference' "$LOG"; then
+# elf2e32's "Import relocation does not refer to code segment" is fatal too:
+# the program then fails to load ("Invalid ordinal ...").
+if grep -qE '^make(\[[0-9]+\])?: \*\*\* |: error: |^\* RCOMP failed|undefined reference|Import relocation does not refer' "$LOG"; then
     echo "==> BUILD FAILED (see errors above)" >&2
     rm -f "$LOG"
     exit 1

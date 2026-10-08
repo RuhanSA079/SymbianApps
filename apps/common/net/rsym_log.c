@@ -1,12 +1,15 @@
 /*
  * rsym_log.c: see rsym_log.h. The log is appended across runs and trimmed
- * when it grows past MAX_LOG at start-up.
+ * when it grows past MAX_LOG at start-up. With the remote debug log on
+ * (rsym_rlog.h), every line also goes to the log server, whether or not the
+ * file log is on.
  */
 #include <stdarg.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include "rsym_log.h"
+#include "rsym_rlog.h"
 
 #define MAX_LOG (512 * 1024)
 
@@ -25,17 +28,16 @@ void rsym_log_init(const char *dir, const char *name)
     gettimeofday(&t0, NULL);
     if (enabled && stat(log_path, &st) == 0 && st.st_size > MAX_LOG)
         remove(log_path);
+    rsym_rlog_init(dir, name);
     rsym_log("---- %s started", name);
 }
 
 void rsym_log(const char *fmt, ...)
 {
-    FILE *fp;
+    char line[512];
+    int n;
     va_list ap;
-    if (!ready || !enabled)
-        return;
-    fp = fopen(log_path, "a");
-    if (!fp)
+    if (!ready || (!enabled && !rsym_rlog_enabled()))
         return;
     {
         /* seconds since rsym_log_init, to the millisecond */
@@ -43,13 +45,20 @@ void rsym_log(const char *fmt, ...)
         long ms;
         gettimeofday(&now, NULL);
         ms = (now.tv_sec - t0.tv_sec) * 1000L + (now.tv_usec - t0.tv_usec) / 1000L;
-        fprintf(fp, "[%ld.%03ld] ", ms / 1000, ms % 1000);
+        n = snprintf(line, sizeof(line), "[%ld.%03ld] ", ms / 1000, ms % 1000);
     }
     va_start(ap, fmt);
-    vfprintf(fp, fmt, ap);
+    vsnprintf(line + n, sizeof(line) - n, fmt, ap);
     va_end(ap);
-    fputc('\n', fp);
-    fclose(fp);
+    if (enabled) {
+        FILE *fp = fopen(log_path, "a");
+        if (fp) {
+            fputs(line, fp);
+            fputc('\n', fp);
+            fclose(fp);
+        }
+    }
+    rsym_rlog_line(line);
 }
 
 int rsym_log_enabled(void) { return enabled; }

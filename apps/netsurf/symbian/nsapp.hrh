@@ -14,7 +14,7 @@ enum TNsCommand
     ENsCmdLandscape,
     ENsCmdPortrait,
     ENsCmdAutoRotate,
-    ENsCmdDebugLog,
+    ENsCmdSettings,         /* the full-screen Settings page */
     ENsCmdAbout,
     ENsCmdExit              /* our own Exit: Avkon turns EAknCmdExit into EEikCmdExit */
     };

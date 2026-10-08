@@ -18,4 +18,13 @@ DEST="$ROOT/apps/common/cjson"
 rm -rf "$DEST" && mkdir -p "$DEST"
 tar -xzf cJSON-$VER.tar.gz -C "$DEST" --strip-components=1 \
     cJSON-$VER/cJSON.c cJSON-$VER/cJSON.h cJSON-$VER/LICENSE
+# Use cJSON's wrapper functions for malloc/free/realloc (its MSVC branch) on
+# Symbian too: its default allocator table otherwise holds the addresses of
+# libc's imported functions, which elf2e32 cannot relocate ("Import
+# relocation does not refer to code segment"), and the program then fails to
+# load ("Invalid ordinal ... requested from libc.dll").
+# (only the #if just before the "C2322" comment: the allocator wrappers)
+sed -i '/^#if defined(_MSC_VER)$/{N;s|^#if defined(_MSC_VER)\n\(/\* work around MSVC error C2322\)|#if defined(_MSC_VER) \|\| defined(__SYMBIAN32__)\n\1|}' "$DEST/cJSON.c"
+grep -q 'defined(_MSC_VER) || defined(__SYMBIAN32__)' "$DEST/cJSON.c" \
+    || { echo "cJSON.c: allocator patch did not apply" >&2; exit 1; }
 echo "==> cJSON $VER in apps/common/cjson"

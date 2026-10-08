@@ -47,6 +47,23 @@ void nsfb_sym_home(void);
 /* Current URL (UTF-8) into buf; returns buf ("" if none). */
 char *nsfb_sym_current_url(char *buf, int buflen);
 
+/* Settings (nsfb_glue.c). The user's choices live in their own file, read
+ * over res/Choices at start: set its path before nsfb_sym_start. */
+void nsfb_sym_set_user_choices(const char *path);
+const char *nsfb_sym_user_choices(void);
+enum {
+	NSFB_SYM_OPT_SCALE,         /* page zoom, percent (applies at once) */
+	NSFB_SYM_OPT_FONT_SIZE,     /* default text size, 0.1 pt (on reload) */
+	NSFB_SYM_OPT_IMAGES,        /* load images: 0/1 (on reload) */
+	NSFB_SYM_OPT_BLOCK_ADS,     /* 0/1 */
+	NSFB_SYM_OPT_DNT            /* send Do Not Track: 0/1 */
+};
+int nsfb_sym_option(int opt);
+void nsfb_sym_set_option(int opt, int value);
+char *nsfb_sym_homepage(char *buf, int buflen);     /* "" if none */
+void nsfb_sym_set_homepage(const char *url);        /* "" = NetSurf's own */
+int nsfb_sym_save_options(void);                    /* 0 ok */
+
 /* ---- implemented by the app (C++) ---- */
 
 /* Show the given area of the surface (32 bpp 0x00RRGGBB pixels). */

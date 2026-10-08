@@ -137,4 +137,5 @@ SOURCEPATH      ../net
 SOURCE          rsym_ca_google.c
 SOURCE          rsym_https.c
 SOURCE          rsym_log.c
+SOURCE          rsym_rlog.cpp
 SOURCE          rsym_tcp.cpp

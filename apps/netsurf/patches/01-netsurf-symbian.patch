@@ -80,7 +80,7 @@
  static void gui_quit(void)
  {
  	NSLOG(netsurf, INFO, "gui_quit");
-@@ -2171,32 +2174,38 @@
+@@ -2171,32 +2174,43 @@
  	.quit = gui_quit,
  };
  
@@ -97,6 +97,11 @@
   */
 -int
 -main(int argc, char** argv)
++#ifdef __SYMBIAN32__
++/* apps/netsurf/symbian/nsfb_glue.c: the user's Choices file, or NULL */
++const char *nsfb_sym_user_choices(void);
++#endif
++
 +static int
 +fb_start(int argc, char** argv)
  {
@@ -133,7 +138,19 @@
  
          ret = netsurf_register(&framebuffer_table);
          if (ret != NSERROR_OK) {
-@@ -2265,15 +2274,26 @@
+@@ -2218,6 +2232,11 @@
+ 	options = filepath_find(respaths, "Choices");
+ 	nsoption_read(options, nsoptions);
+ 	free(options);
++#ifdef __SYMBIAN32__
++	/* the user's settings (the app's Settings page), over the defaults */
++	if (nsfb_sym_user_choices() != NULL)
++		nsoption_read(nsfb_sym_user_choices(), nsoptions);
++#endif
+ 	nsoption_commandline(&argc, argv, nsoptions);
+ 
+ 	/* message init */
+@@ -2265,15 +2284,26 @@
  					      url,
  					      NULL,
  					      NULL,
@@ -164,7 +181,7 @@
  	}
  
  	netsurf_exit();
-@@ -2286,9 +2306,89 @@
+@@ -2286,9 +2316,89 @@
  
  	/* finalise logging */
  	nslog_finalise();
@@ -276,3 +293,42 @@
 +#endif
 +
  #endif
+--- a/netsurf/utils/log.c
++++ b/netsurf/utils/log.c
+@@ -103,12 +103,36 @@
+ NSLOG_DEFINE_CATEGORY(dukky, "Duktape JavaScript Binding");
+ NSLOG_DEFINE_CATEGORY(jserrors, "JavaScript error messages");
+ 
++#ifdef __SYMBIAN32__
++/* apps/common/net/rsym_rlog.h: the remote debug log */
++extern int rsym_rlog_enabled(void);
++extern void rsym_rlog_line(const char *line);
++#endif
++
+ static void
+ netsurf_render_log(void *_ctx,
+ 		   nslog_entry_context_t *ctx,
+ 		   const char *fmt,
+ 		   va_list args)
+ {
++#ifdef __SYMBIAN32__
++	/* also to the log server, when the remote debug log is on */
++	if (rsym_rlog_enabled()) {
++		char line[512];
++		int n;
++		va_list ap;
++		va_copy(ap, args);
++		n = snprintf(line, sizeof(line), "ns %s [%s %.*s] %.*s:%i: ",
++			     nslog_gettime(),
++			     nslog_short_level_name(ctx->level),
++			     ctx->category->namelen, ctx->category->name,
++			     ctx->filenamelen, ctx->filename, ctx->lineno);
++		if (n > 0 && n < (int)sizeof(line))
++			vsnprintf(line + n, sizeof(line) - n, fmt, ap);
++		va_end(ap);
++		rsym_rlog_line(line);
++	}
++#endif
+ 	fprintf(logfile,
+ 		"%s [%s %.*s] %.*s:%i %.*s: ",
+ 		nslog_gettime(),

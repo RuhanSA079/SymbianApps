@@ -4,12 +4,16 @@
  * <private dir>/rssh-debug.log, appended across runs and trimmed when it
  * grows past KMaxLog. Each line is opened, written and closed, so the log
  * survives a crash and shows the last step reached.
+ *
+ * With the remote debug log on (Settings; apps/common/net/rsym_rlog.h),
+ * every line also goes to the log server, whether or not the file log is on.
  */
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
 #include "rssh_trace.h"
+#include "rsym_rlog.h"
 
 #define KMaxLog (512 * 1024)
 
@@ -26,24 +30,29 @@ void rssh_trace_init(const char *dir)
     ready = 1;
     if (enabled && stat(log_path, &st) == 0 && st.st_size > KMaxLog)
         remove(log_path);
+    rsym_rlog_init(dir, "rssh");
     rssh_trace("---- rSSH started");
 }
 
 void rssh_trace(const char *fmt, ...)
 {
-    FILE *fp;
+    char line[512];
     va_list ap;
 
-    if (!ready || !enabled)
-        return;
-    fp = fopen(log_path, "a");
-    if (!fp)
+    if (!ready || (!enabled && !rsym_rlog_enabled()))
         return;
     va_start(ap, fmt);
-    vfprintf(fp, fmt, ap);
+    vsnprintf(line, sizeof(line), fmt, ap);
     va_end(ap);
-    fputc('\n', fp);
-    fclose(fp);
+    if (enabled) {
+        FILE *fp = fopen(log_path, "a");
+        if (fp) {
+            fputs(line, fp);
+            fputc('\n', fp);
+            fclose(fp);
+        }
+    }
+    rsym_rlog_line(line);
 }
 
 int rssh_debug_enabled(void) { return enabled; }

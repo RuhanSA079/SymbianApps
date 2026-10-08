@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- rJellyfin's app icon (made for this project; not Jellyfin's logo).
+     SVG Tiny: no arcs in paths, as the phone's icon engine reads SVG Tiny. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" baseProfile="tiny"
+     width="88" height="88" viewBox="0 0 88 88">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="88" y2="88" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#aa5cc3"/>
+      <stop offset="1" stop-color="#00a4dc"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="84" height="84" rx="18" ry="18" fill="url(#bg)"/>
+  <!-- a screen with a play button, over a music note -->
+  <rect x="14" y="18" width="60" height="40" rx="6" ry="6" fill="#ffffff"/>
+  <path d="M38 27 L54 38 L38 49 Z" fill="#7a6bd0"/>
+  <rect x="34" y="62" width="20" height="5" rx="2" ry="2" fill="#ffffff"/>
+  <rect x="26" y="70" width="36" height="5" rx="2" ry="2" fill="#ffffff"/>
+</svg>

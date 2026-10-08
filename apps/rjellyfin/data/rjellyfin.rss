@@ -1,0 +1,141 @@
+/* rjellyfin.rss: rJellyfin resources. */
+NAME RJLF
+
+#include <eikon.rh>
+#include <avkon.rsg>   /* before avkon.rh: its STRUCT defaults use R_AVKON_* */
+#include <avkon.rh>
+#include <avkon.hrh>
+#include <appinfo.rh>
+#include "../src/rjellyfin.hrh"
+
+RESOURCE RSS_SIGNATURE {}
+RESOURCE TBUF { buf = ""; }
+
+RESOURCE EIK_APP_INFO
+    {
+    menubar = r_jf_menubar;
+    cba = R_AVKON_SOFTKEYS_OPTIONS_BACK;
+    }
+
+RESOURCE MENU_BAR r_jf_menubar
+    {
+    titles = { MENU_TITLE { menu_pane = r_jf_menu; } };
+    }
+
+RESOURCE MENU_PANE r_jf_menu
+    {
+    items =
+        {
+        MENU_ITEM { command = EJfCmdOpen; txt = "Open"; },
+        MENU_ITEM { command = EJfCmdPlay; txt = "Play"; },
+        MENU_ITEM { command = EJfCmdStop; txt = "Stop"; },
+        MENU_ITEM { command = EJfCmdNext; txt = "Next track"; },
+        MENU_ITEM { command = EJfCmdPrevious; txt = "Previous track"; },
+        MENU_ITEM { command = EJfCmdVolumeUp; txt = "Volume up"; },
+        MENU_ITEM { command = EJfCmdVolumeDown; txt = "Volume down"; },
+        MENU_ITEM { command = EJfCmdHome; txt = "Libraries"; },
+        MENU_ITEM { command = EJfCmdSettings; txt = "Settings"; },
+        MENU_ITEM { command = EJfCmdAbout; txt = "About"; },
+        MENU_ITEM { command = EJfCmdExit; txt = "Exit"; }
+        };
+    }
+
+/* One-line text entry: no predictive text (addresses, names). */
+RESOURCE DIALOG r_jf_text_query
+    {
+    flags = EGeneralQueryFlags;
+    buttons = R_AVKON_SOFTKEYS_OK_CANCEL;
+    items =
+        {
+        DLG_LINE
+            {
+            type = EAknCtQuery;
+            id = EGeneralQuery;
+            control = AVKON_DATA_QUERY
+                {
+                layout = EDataLayout;
+                label = "";
+                control = EDWIN
+                    {
+                    width = 40;
+                    maxlength = 256;
+                    lines = 2;
+                    avkon_flags = EAknEditorFlagNoT9 | EAknEditorFlagLatinInputModesOnly;
+                    default_case = EAknEditorLowerCase;
+                    allowed_case_modes = EAknEditorAllCaseModes;
+                    special_character_table = R_AVKON_URL_SPECIAL_CHARACTER_TABLE_DIALOG;
+                    };
+                };
+            }
+        };
+    }
+
+/* Password entry: hidden characters. */
+RESOURCE DIALOG r_jf_password_query
+    {
+    flags = EGeneralQueryFlags;
+    buttons = R_AVKON_SOFTKEYS_OK_CANCEL;
+    items =
+        {
+        DLG_LINE
+            {
+            type = EAknCtQuery;
+            id = EGeneralQuery;
+            control = AVKON_DATA_QUERY
+                {
+                layout = ECodeLayout;
+                label = "Password";
+                control = SECRETED { num_letters = 64; };
+                };
+            }
+        };
+    }
+
+RESOURCE DIALOG r_jf_yesno_query
+    {
+    flags = EGeneralQueryFlags;
+    buttons = R_AVKON_SOFTKEYS_YES_NO;
+    items =
+        {
+        DLG_LINE
+            {
+            type = EAknCtQuery;
+            id = EGeneralQuery;
+            control = AVKON_CONFIRMATION_QUERY
+                {
+                layout = EConfirmationQueryLayout;
+                label = "";
+                };
+            }
+        };
+    }
+
+RESOURCE DIALOG r_jf_ok_query
+    {
+    flags = EGeneralQueryFlags;
+    buttons = R_AVKON_SOFTKEYS_OK_EMPTY;
+    items =
+        {
+        DLG_LINE
+            {
+            type = EAknCtQuery;
+            id = EGeneralQuery;
+            control = AVKON_CONFIRMATION_QUERY
+                {
+                layout = EConfirmationQueryLayout;
+                label = "";
+                };
+            }
+        };
+    }
+
+RESOURCE LOCALISABLE_APP_INFO r_jf_localisable_app_info
+    {
+    short_caption = "rJellyfin";
+    caption_and_icon = CAPTION_AND_ICON_INFO
+        {
+        caption = "rJellyfin";
+        number_of_icons = 1;    /* data/rjellyfin-icon.svg, made by prebuild.sh */
+        icon_file = "\\resource\\apps\\rjellyfin_aif.mif";
+        };
+    }

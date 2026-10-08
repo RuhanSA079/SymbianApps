@@ -54,6 +54,11 @@ extern const char rsym_ca_google_pem[];
  * caller). Call before the first request. */
 void rsym_https_set_ca(const char *pem);
 
+/* Accept any certificate from this one host (e.g. a home server with a
+ * self-signed certificate): the connection is encrypted but not
+ * authenticated. NULL or "" turns it off. */
+void rsym_https_allow_untrusted(const char *host);
+
 /* Initialise PSA crypto and parse the root certificates. Called by
  * rsym_https_request on first use; 0 on success. Not thread-safe: the
  * first call must not race with another. */

@@ -8,6 +8,7 @@ UID             0 0xE5A1E010
 MACRO           HAVE_CMAKE_H
 
 USERINCLUDE     ../symbian ../putty ../putty/terminal ../putty/charset ../putty/generated
+USERINCLUDE     ../../common/net
 SYSTEMINCLUDE   ../symbian/sysinclude /epoc32/include/stdapis /epoc32/include
 
 SOURCEPATH      ../putty

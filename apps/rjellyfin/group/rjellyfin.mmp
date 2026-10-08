@@ -1,0 +1,35 @@
+// rjellyfin.mmp - rJellyfin: a Jellyfin client for Symbian^3 (experimental).
+// 0xE....... is the unprotected test-UID range: fine for self-signed builds.
+
+TARGET          rjellyfin.exe
+TARGETTYPE      exe
+UID             0x100039CE 0xE5A1E050
+SECUREID        0xE5A1E050
+VENDORID        0
+CAPABILITY      NetworkServices
+EPOCSTACKSIZE   0x14000
+EPOCHEAPSIZE    0x10000 0x2000000
+
+USERINCLUDE     ../src ../../common/audio ../../common/net ../../common/cjson
+SYSTEMINCLUDE   /epoc32/include /epoc32/include/mw /epoc32/include/platform
+SYSTEMINCLUDE   /epoc32/include/platform/mw /epoc32/include/stdapis
+
+SOURCEPATH      ../data
+START RESOURCE  rjellyfin.rss
+HEADER
+TARGETPATH      /resource/apps
+END
+START RESOURCE  rjellyfin_reg.rss
+TARGETPATH      /private/10003a3f/import/apps
+END
+
+SOURCEPATH      ../src
+SOURCE          rjellyfin.cpp
+
+STATICLIBRARY   rsym_audio.lib rsym_mp3.lib rsym_net.lib rsym_mbedtls.lib
+LIBRARY         euser.lib apparc.lib cone.lib eikcore.lib avkon.lib
+LIBRARY         eikdlg.lib eikctl.lib eikcoctl.lib efsrv.lib gdi.lib bafl.lib
+LIBRARY         esock.lib insock.lib random.lib charconv.lib hal.lib
+LIBRARY         mediaclientaudiostream.lib remconcoreapi.lib remconinterfacebase.lib
+LIBRARY         fbscli.lib egul.lib aknicon.lib imageconversion.lib
+LIBRARY         libc.lib libm.lib

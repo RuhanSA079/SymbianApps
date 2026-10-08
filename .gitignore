@@ -20,3 +20,6 @@ apps/netsurf/expat/
 apps/netsurf/libpng/
 apps/netsurf/libjpeg/
 apps/netsurf/sis/
+apps/common/minimp3/
+apps/rinternetradio/build/
+apps/rjellyfin/build/

@@ -150,5 +150,10 @@ RESOURCE DIALOG r_rssh_info_query
 RESOURCE LOCALISABLE_APP_INFO r_rssh_localisable_app_info
     {
     short_caption = "rSSH";
-    caption_and_icon = CAPTION_AND_ICON_INFO { caption = "rSSH"; number_of_icons = 0; };
+    caption_and_icon = CAPTION_AND_ICON_INFO
+        {
+        caption = "rSSH";
+        number_of_icons = 1;    /* data/ssh-svgrepo-com.svg, made by prebuild.sh */
+        icon_file = "\\resource\\apps\\rssh_aif.mif";
+        };
     }

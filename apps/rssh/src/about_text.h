@@ -16,6 +16,8 @@ static const char KAboutTextUtf8[] =
     "- GnuPoc by Martin Storsj\303\266 (Symbian SDK tools for Linux)\n"
     "- Nokia Symbian^3 SDK 1.0 and Open C / P.I.P.S.\n"
     "\n"
+    "App icon: \"ssh\" from SVG Repo (www.svgrepo.com).\n"
+    "\n"
     "Thanks to PuTTY for Symbian OS (s2putty) by Petteri Kangaslampi and contributors, which showed the way, and to the EKA2L1 emulator project.\n"
     "\n"
     "PuTTY licence\n"

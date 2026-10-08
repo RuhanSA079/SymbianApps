@@ -1,0 +1,121 @@
+/* rinternetradio.rss: rInternetRadio resources. */
+NAME RRAD
+
+#include <eikon.rh>
+#include <avkon.rsg>   /* before avkon.rh: its STRUCT defaults use R_AVKON_* */
+#include <avkon.rh>
+#include <avkon.hrh>
+#include <appinfo.rh>
+#include "../src/rinternetradio.hrh"
+
+RESOURCE RSS_SIGNATURE {}
+RESOURCE TBUF { buf = ""; }
+
+RESOURCE EIK_APP_INFO
+    {
+    menubar = r_radio_menubar;
+    cba = R_AVKON_SOFTKEYS_OPTIONS_BACK;
+    }
+
+RESOURCE MENU_BAR r_radio_menubar
+    {
+    titles = { MENU_TITLE { menu_pane = r_radio_menu; } };
+    }
+
+RESOURCE MENU_PANE r_radio_menu
+    {
+    items =
+        {
+        MENU_ITEM { command = ERadioCmdPlay; txt = "Play"; },
+        MENU_ITEM { command = ERadioCmdStop; txt = "Stop"; },
+        MENU_ITEM { command = ERadioCmdSearch; txt = "Search stations"; },
+        MENU_ITEM { command = ERadioCmdTop; txt = "Top stations"; },
+        MENU_ITEM { command = ERadioCmdAddFavourite; txt = "Add to favourites"; },
+        MENU_ITEM { command = ERadioCmdRemoveFavourite; txt = "Remove from favourites"; },
+        MENU_ITEM { command = ERadioCmdAddUrl; txt = "Add station by address"; },
+        MENU_ITEM { command = ERadioCmdVolumeUp; txt = "Volume up"; },
+        MENU_ITEM { command = ERadioCmdVolumeDown; txt = "Volume down"; },
+        MENU_ITEM { command = ERadioCmdSettings; txt = "Settings"; },
+        MENU_ITEM { command = ERadioCmdAbout; txt = "About"; },
+        MENU_ITEM { command = ERadioCmdExit; txt = "Exit"; }
+        };
+    }
+
+/* One-line text entry: no predictive text (addresses, names). */
+RESOURCE DIALOG r_radio_text_query
+    {
+    flags = EGeneralQueryFlags;
+    buttons = R_AVKON_SOFTKEYS_OK_CANCEL;
+    items =
+        {
+        DLG_LINE
+            {
+            type = EAknCtQuery;
+            id = EGeneralQuery;
+            control = AVKON_DATA_QUERY
+                {
+                layout = EDataLayout;
+                label = "";
+                control = EDWIN
+                    {
+                    width = 40;
+                    maxlength = 512;
+                    lines = 3;
+                    avkon_flags = EAknEditorFlagNoT9 | EAknEditorFlagLatinInputModesOnly;
+                    default_case = EAknEditorLowerCase;
+                    allowed_case_modes = EAknEditorAllCaseModes;
+                    special_character_table = R_AVKON_URL_SPECIAL_CHARACTER_TABLE_DIALOG;
+                    };
+                };
+            }
+        };
+    }
+
+RESOURCE DIALOG r_radio_yesno_query
+    {
+    flags = EGeneralQueryFlags;
+    buttons = R_AVKON_SOFTKEYS_YES_NO;
+    items =
+        {
+        DLG_LINE
+            {
+            type = EAknCtQuery;
+            id = EGeneralQuery;
+            control = AVKON_CONFIRMATION_QUERY
+                {
+                layout = EConfirmationQueryLayout;
+                label = "";
+                };
+            }
+        };
+    }
+
+RESOURCE DIALOG r_radio_ok_query
+    {
+    flags = EGeneralQueryFlags;
+    buttons = R_AVKON_SOFTKEYS_OK_EMPTY;
+    items =
+        {
+        DLG_LINE
+            {
+            type = EAknCtQuery;
+            id = EGeneralQuery;
+            control = AVKON_CONFIRMATION_QUERY
+                {
+                layout = EConfirmationQueryLayout;
+                label = "";
+                };
+            }
+        };
+    }
+
+RESOURCE LOCALISABLE_APP_INFO r_radio_localisable_app_info
+    {
+    short_caption = "rRadio";
+    caption_and_icon = CAPTION_AND_ICON_INFO
+        {
+        caption = "rInternetRadio";
+        number_of_icons = 1;    /* data/rinternetradio-icon.svg, made by prebuild.sh */
+        icon_file = "\\resource\\apps\\rinternetradio_aif.mif";
+        };
+    }

@@ -1,0 +1,16 @@
+; rInternetRadio installation package (built with: ./sym sh env/build.sh apps/rinternetradio)
+&EN
+#{"rInternetRadio"},(0xE5A1E040),0,1,0
+%{"SymbianApps"}
+:"SymbianApps"
+
+; Symbian^3 product ID (E7, N8, C7, ...; also covers Anna/Belle)
+[0x20022E6D],0,0,0,{"S60ProductID"}
+
+"$(EPOCROOT)epoc32\release\gcce\urel\rinternetradio.exe"                      -"!:\sys\bin\rinternetradio.exe"
+"$(EPOCROOT)epoc32\data\z\resource\apps\rinternetradio.rsc"                   -"!:\resource\apps\rinternetradio.rsc"
+"$(EPOCROOT)epoc32\data\z\private\10003a3f\import\apps\rinternetradio_reg.rsc" -"!:\private\10003a3f\import\apps\rinternetradio_reg.rsc"
+; app icon (SVG)
+"..\build\icon\rinternetradio_aif.mif"                                     -"!:\resource\apps\rinternetradio_aif.mif"
+; root certificates for https:// streams (Mozilla's, NetSurf's copy)
+"..\build\ca-bundle"                                                        -"!:\private\E5A1E040\ca-bundle"

@@ -34,7 +34,7 @@ else
     ./sym sh env/install-sdk.sh
 fi
 
-step "4/6 third-party sources (PuTTY; mbedTLS, cJSON; NetSurf, expat, libpng, libjpeg)"
+step "4/6 third-party sources (PuTTY; mbedTLS, cJSON; minimp3; NetSurf, expat, libpng, libjpeg)"
 if [ -f apps/rssh/putty/LICENCE ]; then
     echo "PuTTY: already fetched"
 else
@@ -49,6 +49,11 @@ if [ -f apps/common/cjson/cJSON.c ]; then
     echo "cJSON: already fetched"
 else
     env/fetch-cjson.sh
+fi
+if [ -f apps/common/minimp3/minimp3.h ]; then
+    echo "minimp3: already fetched"
+else
+    env/fetch-minimp3.sh
 fi
 if [ -f apps/netsurf/src/netsurf/Makefile ]; then
     echo "NetSurf: already fetched"

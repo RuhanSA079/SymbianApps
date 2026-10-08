@@ -1,0 +1,18 @@
+/* rjellyfin.hrh: command IDs shared by rjellyfin.rss and the C++ code. */
+#ifndef RJELLYFIN_HRH
+#define RJELLYFIN_HRH
+enum TJfCommand
+    {
+    EJfCmdOpen = 0x7201,
+    EJfCmdPlay,
+    EJfCmdStop,
+    EJfCmdNext,
+    EJfCmdPrevious,
+    EJfCmdVolumeUp,
+    EJfCmdVolumeDown,
+    EJfCmdHome,
+    EJfCmdSettings,
+    EJfCmdAbout,
+    EJfCmdExit              /* our own Exit: Avkon turns EAknCmdExit into EEikCmdExit */
+    };
+#endif

@@ -13,6 +13,8 @@ Built with
 - GnuPoc by Martin Storsjö (Symbian SDK tools for Linux)
 - Nokia Symbian^3 SDK 1.0 and Open C / P.I.P.S.
 
+App icon: "ssh" from SVG Repo (www.svgrepo.com).
+
 Thanks to PuTTY for Symbian OS (s2putty) by Petteri Kangaslampi and contributors, which showed the way, and to the EKA2L1 emulator project.
 
 PuTTY licence

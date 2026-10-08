@@ -33,7 +33,7 @@ RESOURCE MENU_PANE r_ns_menu
         MENU_ITEM { command = ENsCmdStop; txt = "Stop"; },
         MENU_ITEM { command = ENsCmdHome; txt = "Home page"; },
         MENU_ITEM { command = ENsCmdRotate; txt = "Screen orientation"; cascade = r_ns_rotate_menu; },
-        MENU_ITEM { command = ENsCmdDebugLog; txt = "Debug log"; },
+        MENU_ITEM { command = ENsCmdSettings; txt = "Settings"; },
         MENU_ITEM { command = ENsCmdAbout; txt = "About"; },
         MENU_ITEM { command = ENsCmdExit; txt = "Exit"; }
         };
@@ -123,7 +123,7 @@ RESOURCE LOCALISABLE_APP_INFO r_ns_localisable_app_info
     caption_and_icon = CAPTION_AND_ICON_INFO
         {
         caption = "NetSurf";
-        number_of_icons = 1;    /* NetSurf's globe, made by prebuild.sh */
+        number_of_icons = 1;    /* data/netsurf-svgrepo-com.svg, made by prebuild.sh */
         icon_file = "\\resource\\apps\\netsurf_aif.mif";
         };
     }

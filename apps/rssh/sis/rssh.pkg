@@ -10,3 +10,5 @@
 "$(EPOCROOT)epoc32\release\gcce\urel\rssh.exe"                      -"!:\sys\bin\rssh.exe"
 "$(EPOCROOT)epoc32\data\z\resource\apps\rssh.rsc"                   -"!:\resource\apps\rssh.rsc"
 "$(EPOCROOT)epoc32\data\z\private\10003a3f\import\apps\rssh_reg.rsc" -"!:\private\10003a3f\import\apps\rssh_reg.rsc"
+; app icon (SVG)
+"..\build\icon\rssh_aif.mif"                                     -"!:\resource\apps\rssh_aif.mif"

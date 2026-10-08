@@ -1,0 +1,16 @@
+// rsym_audio.mmp - stream player for Symbian apps (see audio/radio_engine.h):
+// HTTP(S) MP3 streams, decoded to PCM on a worker thread.
+// Link with: STATICLIBRARY rsym_audio.lib rsym_mp3.lib rsym_net.lib rsym_mbedtls.lib
+//            LIBRARY mediaclientaudiostream.lib (for audio/audio_out.h)
+// rsym_mp3.lib (minimp3, VFP code) is built by ../prebuild.sh.
+
+TARGET          rsym_audio.lib
+TARGETTYPE      lib
+UID             0 0
+
+USERINCLUDE     ../audio ../minimp3 ../net
+SYSTEMINCLUDE   /epoc32/include /epoc32/include/mw /epoc32/include/platform
+SYSTEMINCLUDE   /epoc32/include/platform/mw /epoc32/include/stdapis
+
+SOURCEPATH      ../audio
+SOURCE          radio_engine.cpp

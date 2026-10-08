@@ -9,13 +9,22 @@
  *   (nsfb_sym_step) and sleeps on an RTimer for as long as NetSurf says.
  * - The Options menu has the usual browser commands and Screen orientation
  *   (landscape / portrait / automatic), which is remembered.
+ * - CNsSettings is the full-screen Settings page (Options > Settings):
+ *   browsing options, orientation, the debug log and the remote debug log.
  */
 #include <aknapp.h>
 #include <akndoc.h>
 #include <aknappui.h>
 #include <aknquerydialog.h>
 #include <aknnotewrappers.h>
+#include <aknlists.h>
+#include <akntitle.h>
 #include <avkon.hrh>
+#include <avkon.rsg>
+#include <badesca.h>
+#include <eikbtgpc.h>
+#include <eiklbo.h>
+#include <eikspane.h>
 #include <eikenv.h>
 #include <eikmenup.h>
 #include <eikstart.h>
@@ -37,9 +46,11 @@ extern "C" {
 }
 #include "nsfb_glue.h"
 #include "rsym_log.h"
+#include "rsym_rlog.h"
 
 const TUid KUidNetSurf = { static_cast<TInt32>(0xE5A1E030) };
 _LIT(KPrivate, "\\private\\e5a1e030\\");
+_LIT(KDefaultSuffix, " (default)");
 
 class CNsAppUi;
 static CNsAppUi *gAppUi;
@@ -66,6 +77,108 @@ static void InfoL(const TDesC &aText)
     CAknQueryDialog *dlg = CAknQueryDialog::NewL();
     dlg->ExecuteLD(R_NS_OK_QUERY, aText);
 }
+
+// One-line text entry (the address query's layout, with its own prompt).
+static TBool QueryTextL(const TDesC &aPrompt, TDes &aText)
+{
+    CAknTextQueryDialog *dlg = CAknTextQueryDialog::NewL(aText);
+    dlg->SetPromptL(aPrompt);
+    dlg->SetPredictiveTextInputPermitted(EFalse);
+    return dlg->ExecuteLD(R_NS_URL_QUERY) != 0;
+}
+
+// "C:/private/x/file" (P.I.P.S. style) -> "C:\private\x\file"
+static HBufC *SymbianPathLC(const char *aPath)
+{
+    HBufC *p = Utf8ToUnicodeLC(aPath);
+    TPtr ptr = p->Des();
+    for (TInt i = 0; i < ptr.Length(); i++)
+        if (ptr[i] == '/')
+            ptr[i] = '\\';
+    return p;
+}
+
+// ---------------------------------------------------------------------------
+// CNsSettings: the Settings page, a two-line list ("title", "value"). It
+// exists only while shown.
+
+class CNsSettings : public CCoeControl, public MEikListBoxObserver
+{
+public:
+    static CNsSettings *NewL(const TRect &aRect)
+    {
+        CNsSettings *self = new (ELeave) CNsSettings;
+        CleanupStack::PushL(self);
+        self->ConstructL(aRect);
+        CleanupStack::Pop(self);
+        return self;
+    }
+    ~CNsSettings()
+    {
+        delete iListBox;
+        delete iItems;
+    }
+
+    void ResetL() { iItems->Reset(); }
+    void AddRowL(const TDesC &aTitle, const TDesC &aValue)
+    {
+        HBufC *row = HBufC::NewLC(aTitle.Length() + aValue.Length() + 2);
+        TPtr p = row->Des();
+        p.Append('\t');
+        p.Append(aTitle);
+        p.Append('\t');
+        p.Append(aValue);
+        iItems->AppendL(*row);
+        CleanupStack::PopAndDestroy(row);
+    }
+    void AddRowL(const TDesC &aTitle, const char *aValueUtf8)
+    {
+        HBufC *v = Utf8ToUnicodeLC(aValueUtf8);
+        AddRowL(aTitle, *v);
+        CleanupStack::PopAndDestroy(v);
+    }
+    void DoneL()
+    {
+        TInt current = iListBox->CurrentItemIndex();
+        iListBox->HandleItemAdditionL();
+        if (current < 0)
+            current = 0;
+        if (current >= iItems->Count())
+            current = iItems->Count() - 1;
+        iListBox->SetCurrentItemIndex(current);
+        iListBox->DrawDeferred();
+    }
+    TInt CurrentIndex() const { return iListBox->CurrentItemIndex(); }
+
+    TKeyResponse OfferKeyEventL(const TKeyEvent &aKey, TEventCode aType)
+    {
+        return iListBox->OfferKeyEventL(aKey, aType);
+    }
+    void HandleListBoxEventL(CEikListBox *aListBox, TListBoxEvent aEvent);
+
+private:
+    void ConstructL(const TRect &aRect)
+    {
+        CreateWindowL();
+        iListBox = new (ELeave) CAknDoubleStyleListBox;
+        iListBox->ConstructL(this, EAknListBoxSelectionList);
+        iListBox->CreateScrollBarFrameL(ETrue);
+        iListBox->ScrollBarFrame()->SetScrollBarVisibilityL(
+            CEikScrollBarFrame::EOff, CEikScrollBarFrame::EAuto);
+        iListBox->SetListBoxObserver(this);
+        iItems = new (ELeave) CDesCArrayFlat(16);
+        iListBox->Model()->SetItemTextArray(iItems);
+        iListBox->Model()->SetOwnershipType(ELbmDoesNotOwnItemArray);
+        SetRect(aRect);
+        ActivateL();
+    }
+    void SizeChanged() { iListBox->SetRect(Rect()); }
+    TInt CountComponentControls() const { return 1; }
+    CCoeControl *ComponentControl(TInt) const { return iListBox; }
+
+    CAknDoubleStyleListBox *iListBox;
+    CDesCArrayFlat *iItems;
+};
 
 // ---------------------------------------------------------------------------
 // CNsDriver: runs NetSurf's loop from the active scheduler
@@ -244,6 +357,7 @@ public:
 
         iView = CNsView::NewL(ClientRect());
         AddToStackL(iView);
+        iSettingsTick = CPeriodic::NewL(CActive::EPriorityStandard);
         iDriver = CNsDriver::NewL(*this);
         StartNetSurfL();
 
@@ -278,6 +392,13 @@ public:
     ~CNsAppUi()
     {
         delete iAutoTest;
+        delete iSettingsTick;
+        if (iSettings) {
+            RemoveFromStack(iSettings);
+            delete iSettings;
+        }
+        if (iOptionsChanged)
+            nsfb_sym_save_options();
         ShutdownNetSurf();
         delete iDriver;
         if (iView) {
@@ -286,6 +407,7 @@ public:
         }
         gAppUi = NULL;
         rsym_log("exit");
+        rsym_rlog_flush(1000);
         // EKA2L1 hangs in the framework teardown after this; our clean-up is
         // done, so end the process (as rSSH does).
         User::Exit(KErrNone);
@@ -328,6 +450,9 @@ private:
                 cdir[i] = '/';
         cdir[strlen(cdir) - 1] = 0;
         Mem::Copy(iPrivDir, cdir, strlen(cdir) + 1);
+        char choices[96];
+        sprintf(choices, "%s/Choices", iPrivDir);
+        nsfb_sym_set_user_choices(choices);
         rsym_log_init(iPrivDir, "netsurf");
         rsym_log("start, private dir %s", iPrivDir);
     }
@@ -338,9 +463,9 @@ private:
         char w[16], h[16];
         sprintf(w, "%d", r.Width());
         sprintf(h, "%d", r.Height());
-        // With the debug log on, NetSurf's own (verbose) log goes to
-        // netsurf.log in the private directory.
-        TBool verbose = rsym_log_enabled();
+        // With the debug log (or the remote one) on, NetSurf's own verbose
+        // log goes to netsurf.log in the private directory (and the server).
+        TBool verbose = rsym_log_enabled() || rsym_rlog_enabled();
         if (verbose) {
             char path[96];
             sprintf(path, "%s/netsurf.log", iPrivDir);
@@ -439,6 +564,272 @@ private:
         rsym_log("orientation: %c", (char)aOrient);
     }
 
+    // ---- Settings page ----
+
+public:
+    enum { ESetHome, ESetZoom, ESetTextSize, ESetImages, ESetBlockAds, ESetDnt,
+           ESetOrient, ESetDebug, ESetLogPath, ESetExport, ESetClear,
+           ESetRemote, ESetRemoteHost, ESetRemotePort };
+
+    void SettingsItemL(TInt aIndex)
+    {
+        switch (aIndex) {
+        case ESetHome: {
+            char cur[1024];
+            HBufC *init = Utf8ToUnicodeLC(nsfb_sym_homepage(cur, sizeof cur));
+            TBuf<1024> text;
+            text.Copy(init->Left(text.MaxLength()));
+            CleanupStack::PopAndDestroy(init);
+            if (!QueryTextL(_L("Home page (empty: NetSurf's own)"), text))
+                break;
+            text.TrimAll();
+            HBufC8 *utf8 = HBufC8::NewLC(text.Length() * 3 + 1);
+            TPtr8 p = utf8->Des();
+            CnvUtfConverter::ConvertFromUnicodeToUtf8(p, text);
+            nsfb_sym_set_homepage(reinterpret_cast<const char *>(p.PtrZ()));
+            CleanupStack::PopAndDestroy(utf8);
+            iOptionsChanged = ETrue;
+            break;
+        }
+        case ESetZoom:
+            // applies at once (browser_window_set_scale)
+            nsfb_sym_set_option(NSFB_SYM_OPT_SCALE,
+                                NextOf(KZooms, KNumZooms, nsfb_sym_option(NSFB_SYM_OPT_SCALE)));
+            iOptionsChanged = ETrue;
+            break;
+        case ESetTextSize:
+            nsfb_sym_set_option(NSFB_SYM_OPT_FONT_SIZE,
+                                NextOf(KTextSizes, KNumTextSizes,
+                                       nsfb_sym_option(NSFB_SYM_OPT_FONT_SIZE)));
+            iOptionsChanged = iNeedReload = ETrue;
+            break;
+        case ESetImages:
+        case ESetBlockAds:
+        case ESetDnt: {
+            TInt opt = aIndex == ESetImages ? NSFB_SYM_OPT_IMAGES :
+                       aIndex == ESetBlockAds ? NSFB_SYM_OPT_BLOCK_ADS : NSFB_SYM_OPT_DNT;
+            nsfb_sym_set_option(opt, !nsfb_sym_option(opt));
+            iOptionsChanged = ETrue;
+            iNeedReload = iNeedReload || aIndex != ESetDnt;
+            break;
+        }
+        case ESetOrient:
+            SetOrientL(iOrient == EOrientLandscape ? EOrientPortrait :
+                       iOrient == EOrientPortrait ? EOrientAuto : EOrientLandscape);
+            break;
+        case ESetDebug:
+            rsym_log_set(!rsym_log_enabled());
+            if (rsym_log_enabled())
+                InfoL(_L("Debug logging is on. NetSurf's own log is included from the next launch."));
+            break;
+        case ESetLogPath: {
+            HBufC *path = SymbianPathLC(rsym_log_path());
+            HBufC *msg = HBufC::NewLC(path->Length() + 120);
+            msg->Des().Format(_L("Debug log:\n%S\n(app-private; use Export to copy it out)"), path);
+            InfoL(*msg);
+            CleanupStack::PopAndDestroy(2, path);
+            break;
+        }
+        case ESetExport:
+            ExportLogsL();
+            break;
+        case ESetClear:
+            if (AskYesNoL(_L("Delete the debug log?"))) {
+                rsym_log_clear();
+                InfoL(_L("Debug log deleted."));
+            }
+            break;
+        case ESetRemote: {
+            TBool on = !rsym_rlog_enabled();
+            if (on && !rsym_rlog_host()[0] && !EditRemoteHostL())
+                break;
+            rsym_rlog_configure(on, NULL, 0);
+            if (on)
+                InfoL(_L("Remote debug log is on. Run env/rlog-server.py on the PC. NetSurf's own log is included from the next launch."));
+            break;
+        }
+        case ESetRemoteHost:
+            EditRemoteHostL();
+            break;
+        case ESetRemotePort: {
+            TBuf<16> text;
+            text.AppendNum(rsym_rlog_port());
+            if (!QueryTextL(_L("Remote debug port (default 7865)"), text))
+                break;
+            TLex lex(text);
+            TInt port;
+            if (lex.Val(port) != KErrNone || port <= 0 || port > 65535) {
+                InfoL(_L("The port must be a number from 1 to 65535."));
+                break;
+            }
+            rsym_rlog_configure(rsym_rlog_enabled(), NULL, port);
+            break;
+        }
+        default:
+            break;
+        }
+        RefreshSettingsL();
+    }
+
+private:
+    static const TInt KZooms[];
+    static const TInt KNumZooms = 6;
+    static const TInt KTextSizes[];
+    static const TInt KNumTextSizes = 4;
+
+    // the value after aCur in aList (wrapping), or the first one
+    static TInt NextOf(const TInt *aList, TInt aCount, TInt aCur)
+    {
+        for (TInt i = 0; i < aCount; i++)
+            if (aList[i] > aCur)
+                return aList[i];
+        return aList[0];
+    }
+
+    void ShowSettingsL()
+    {
+        if (iSettings)
+            return;
+        // the page has a title; NetSurf's screen goes without the status pane
+        StatusPane()->MakeVisible(ETrue);
+        CAknTitlePane *title = static_cast<CAknTitlePane *>(
+            StatusPane()->ControlL(TUid::Uid(EEikStatusPaneUidTitle)));
+        title->SetTextL(_L("Settings"));
+        iSettings = CNsSettings::NewL(ClientRect());
+        RemoveFromStack(iView);
+        iView->MakeVisible(EFalse);
+        AddToStackL(iSettings);
+        RefreshSettingsL();
+        CEikButtonGroupContainer *cba = CEikButtonGroupContainer::Current();
+        cba->SetCommandSetL(R_AVKON_SOFTKEYS_SELECT_BACK);
+        cba->DrawDeferred();
+        iSettingsTick->Cancel();
+        iSettingsTick->Start(2000000, 2000000, TCallBack(SettingsTick, this));
+        rsym_log("settings: shown");
+    }
+
+    // From the Back softkey (never from inside the list's own callbacks), so
+    // the list can be deleted here.
+    void CloseSettingsL()
+    {
+        iSettingsTick->Cancel();
+        RemoveFromStack(iSettings);
+        delete iSettings;
+        iSettings = NULL;
+        StatusPane()->MakeVisible(EFalse);
+        iView->SetRect(ClientRect());       // also picks up a rotation
+        iView->MakeVisible(ETrue);
+        AddToStackL(iView);
+        iView->DrawDeferred();
+        CEikButtonGroupContainer *cba = CEikButtonGroupContainer::Current();
+        cba->SetCommandSetL(R_AVKON_SOFTKEYS_OPTIONS_BACK);
+        cba->DrawDeferred();
+        if (iOptionsChanged) {
+            TInt err = nsfb_sym_save_options();
+            rsym_log("settings: saved (%d)", err);
+        }
+        if (iNeedReload) {
+            iNeedReload = EFalse;
+            nsfb_sym_reload();
+        }
+    }
+
+    static TInt SettingsTick(TAny *aSelf)
+    {
+        CNsAppUi *self = static_cast<CNsAppUi *>(aSelf);
+        char status[96];
+        rsym_rlog_status(status, sizeof status);
+        if (self->iSettings && self->iRemoteStatus != TPtrC8((const TUint8 *)status))
+            TRAP_IGNORE(self->RefreshSettingsL());
+        return 0;
+    }
+
+    void RefreshSettingsL()
+    {
+        if (!iSettings)
+            return;
+        CNsSettings &s = *iSettings;
+        char buf[1024];
+        s.ResetL();
+        nsfb_sym_homepage(buf, sizeof buf);
+        s.AddRowL(_L("Home page"), buf[0] ? buf : "NetSurf's own (default)");
+        TBuf<32> v;
+        v.Format(_L("%d%%"), nsfb_sym_option(NSFB_SYM_OPT_SCALE));
+        s.AddRowL(_L("Zoom"), v);
+        TInt fs = nsfb_sym_option(NSFB_SYM_OPT_FONT_SIZE);
+        v.Format(_L("%d.%d pt%S"), fs / 10, fs % 10,
+                 fs == 128 ? &KDefaultSuffix() : &KNullDesC());
+        s.AddRowL(_L("Text size"), v);
+        s.AddRowL(_L("Load images"), nsfb_sym_option(NSFB_SYM_OPT_IMAGES) ? _L("On") : _L("Off"));
+        s.AddRowL(_L("Block adverts"), nsfb_sym_option(NSFB_SYM_OPT_BLOCK_ADS) ? _L("On") : _L("Off"));
+        s.AddRowL(_L("Send Do Not Track"), nsfb_sym_option(NSFB_SYM_OPT_DNT) ? _L("On") : _L("Off"));
+        s.AddRowL(_L("Screen orientation"),
+                  iOrient == EOrientLandscape ? _L("Landscape") :
+                  iOrient == EOrientPortrait ? _L("Portrait") : _L("Automatic"));
+        s.AddRowL(_L("Debug log"), rsym_log_enabled() ? _L("On") : _L("Off (default)"));
+        HBufC *path = SymbianPathLC(rsym_log_path());
+        s.AddRowL(_L("Debug log location"), *path);
+        CleanupStack::PopAndDestroy(path);
+        s.AddRowL(_L("Export debug log"), _L("copy to E:\\NetSurf\\ (mass memory)"));
+        s.AddRowL(_L("Clear debug log"), _L("delete the log file"));
+        char status[96];
+        rsym_rlog_status(status, sizeof status);
+        iRemoteStatus.Copy(TPtrC8((const TUint8 *)status));
+        s.AddRowL(_L("Remote debug log"), status);
+        s.AddRowL(_L("Remote debug host"),
+                  rsym_rlog_host()[0] ? rsym_rlog_host() : "not set (IP address of the log server)");
+        v.Zero();
+        v.AppendNum(rsym_rlog_port());
+        s.AddRowL(_L("Remote debug port"), v);
+        s.DoneL();
+    }
+
+    // Ask for the log server's address. EFalse if cancelled or empty.
+    TBool EditRemoteHostL()
+    {
+        HBufC *cur = Utf8ToUnicodeLC(rsym_rlog_host());
+        TBuf<64> text(cur->Left(64));
+        CleanupStack::PopAndDestroy(cur);
+        if (!QueryTextL(_L("Remote debug host (log server IP address)"), text))
+            return EFalse;
+        text.TrimAll();
+        TBuf8<200> host;        // room for UTF-8 and PtrZ's terminator
+        CnvUtfConverter::ConvertFromUnicodeToUtf8(host, text);
+        rsym_rlog_configure(rsym_rlog_enabled(), reinterpret_cast<const char *>(host.PtrZ()), 0);
+        return text.Length() > 0;
+    }
+
+    // Copy the logs out of the private directory to mass memory (E:), or to
+    // C:\Data if there is no E: drive.
+    void ExportLogsL()
+    {
+        RFs &fs = iEikonEnv->FsSession();
+        CFileMan *fm = CFileMan::NewL(fs);
+        CleanupStack::PushL(fm);
+        TFileName src(iPriv);
+        src.Append(_L("*.log"));        // netsurf-debug.log, netsurf.log
+        TPtrC dest(_L("E:\\NetSurf\\"));
+        TInt err = fs.MkDirAll(dest);
+        if (err == KErrNone || err == KErrAlreadyExists)
+            err = fm->Copy(src, dest, CFileMan::EOverWrite);
+        if (err != KErrNone && err != KErrNotFound) {
+            dest.Set(_L("C:\\Data\\NetSurf\\"));
+            err = fs.MkDirAll(dest);
+            if (err == KErrNone || err == KErrAlreadyExists)
+                err = fm->Copy(src, dest, CFileMan::EOverWrite);
+        }
+        CleanupStack::PopAndDestroy(fm);
+        rsym_log("export logs -> %d", err);
+        TBuf<128> msg;
+        if (err == KErrNone)
+            msg.Format(_L("Debug logs exported to\n%S"), &dest);
+        else if (err == KErrNotFound)
+            msg.Copy(_L("There is no debug log yet. Turn on Debug log first."));
+        else
+            msg.Format(_L("Export failed (error %d)."), err);
+        InfoL(msg);
+    }
+
     // ---- commands ----
 
     void OpenUrlL()
@@ -471,8 +862,6 @@ private:
             aMenu->SetItemButtonState(id, EEikMenuItemSymbolOn);
         } else if (aResourceId == R_NS_MENU) {
             aMenu->SetItemDimmed(ENsCmdBack, !nsfb_sym_can_back());
-            aMenu->SetItemTextL(ENsCmdDebugLog, rsym_log_enabled() ?
-                                _L("Debug log: on") : _L("Debug log: off"));
         }
     }
 
@@ -488,17 +877,18 @@ private:
         case ENsCmdLandscape:  SetOrientL(EOrientLandscape); break;
         case ENsCmdPortrait:   SetOrientL(EOrientPortrait); break;
         case ENsCmdAutoRotate: SetOrientL(EOrientAuto); break;
-        case ENsCmdDebugLog:
-            rsym_log_set(!rsym_log_enabled());
-            InfoL(rsym_log_enabled() ?
-                  _L("Debug logging is on. NetSurf's own log starts at the next launch.") :
-                  _L("Debug logging is off."));
+        case ENsCmdSettings:   ShowSettingsL(); break;
+        case EAknSoftkeySelect:
+            if (iSettings)
+                SettingsItemL(iSettings->CurrentIndex());
             break;
         case ENsCmdAbout:
-            InfoL(_L("NetSurf for Symbian^3\nNetSurf (netsurf-browser.org) ported by RuhanSA079\ngithub.com/RuhanSA079/SymbianApps"));
+            InfoL(_L("NetSurf for Symbian^3\nNetSurf (netsurf-browser.org) ported by RuhanSA079\ngithub.com/RuhanSA079/SymbianApps\nApp icon: SVG Repo (www.svgrepo.com)"));
             break;
         case EAknSoftkeyBack:
-            if (nsfb_sym_can_back())
+            if (iSettings)
+                CloseSettingsL();
+            else if (nsfb_sym_can_back())
                 nsfb_sym_back();
             else if (AskYesNoL(_L("Exit NetSurf?")))
                 Exit();
@@ -545,13 +935,22 @@ private:
     void HandleResourceChangeL(TInt aType)
     {
         CAknAppUi::HandleResourceChangeL(aType);
-        if (aType == KEikDynamicLayoutVariantSwitch && iView)   // rotation
-            iView->SetRect(ClientRect());
+        if (aType == KEikDynamicLayoutVariantSwitch) {          // rotation
+            if (iSettings)
+                iSettings->SetRect(ClientRect());   // the page: on leaving
+            else if (iView)
+                iView->SetRect(ClientRect());
+        }
     }
 
     CNsView *iView;
     CNsDriver *iDriver;
     CPeriodic *iAutoTest;
+    CNsSettings *iSettings;     // only while the Settings page is shown
+    CPeriodic *iSettingsTick;   // refreshes the remote log status there
+    TBuf8<96> iRemoteStatus;    // as last shown
+    TBool iOptionsChanged;      // save NetSurf's options on leaving Settings
+    TBool iNeedReload;          // ... and reload the page
     TBool iStarted;
     TBool iShiftDown, iCtrlDown;
     TOrient iOrient;
@@ -560,6 +959,16 @@ private:
 };
 
 // ---------------------------------------------------------------------------
+
+const TInt CNsAppUi::KZooms[] = { 50, 75, 100, 125, 150, 200 };
+const TInt CNsAppUi::KTextSizes[] = { 100, 128, 160, 200 };
+
+void CNsSettings::HandleListBoxEventL(CEikListBox *, TListBoxEvent aEvent)
+{
+    if (aEvent == EEventEnterKeyPressed || aEvent == EEventItemSingleClicked ||
+        aEvent == EEventItemDoubleClicked)
+        gAppUi->SettingsItemL(iListBox->CurrentItemIndex());
+}
 
 void CNsDriver::RunL()
 {

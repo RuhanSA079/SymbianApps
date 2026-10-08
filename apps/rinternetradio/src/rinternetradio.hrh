@@ -1,0 +1,19 @@
+/* rinternetradio.hrh: command IDs shared by rinternetradio.rss and the C++ code. */
+#ifndef RINTERNETRADIO_HRH
+#define RINTERNETRADIO_HRH
+enum TRadioCommand
+    {
+    ERadioCmdPlay = 0x7101,
+    ERadioCmdStop,
+    ERadioCmdSearch,
+    ERadioCmdTop,
+    ERadioCmdAddFavourite,
+    ERadioCmdRemoveFavourite,
+    ERadioCmdAddUrl,
+    ERadioCmdVolumeUp,
+    ERadioCmdVolumeDown,
+    ERadioCmdSettings,
+    ERadioCmdAbout,
+    ERadioCmdExit           /* our own Exit: Avkon turns EAknCmdExit into EEikCmdExit */
+    };
+#endif

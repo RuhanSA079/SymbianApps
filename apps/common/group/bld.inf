@@ -4,3 +4,4 @@ GCCE
 PRJ_MMPFILES
 rsym_mbedtls.mmp
 rsym_net.mmp
+rsym_audio.mmp
