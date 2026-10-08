@@ -65,7 +65,7 @@ TARGET          rsym_net.lib
 TARGETTYPE      lib
 UID             0 0
 
-USERINCLUDE     ../net ../mbedtls-symbian
+USERINCLUDE     ../net ../cjson ../mbedtls-symbian
 """]
 for d in incdirs:
     net.append('USERINCLUDE     ../mbedtls/%s\n' % d)
@@ -74,6 +74,7 @@ for d in lines('mbedtls-includes.txt'):
 net.append('SYSTEMINCLUDE   ../mbedtls-symbian\n')
 net.append('SYSTEMINCLUDE   /epoc32/include/stdapis /epoc32/include\n')
 net.append('SYSTEMINCLUDE   /epoc32/include/mw /epoc32/include/platform /epoc32/include/platform/mw\n')
+net.append('\nSOURCEPATH      ../cjson\nSOURCE          cJSON.c\n')
 net.append('\nSOURCEPATH      ../net\n')
 for f in sorted(os.listdir(os.path.join(ROOT, 'net'))):
     if f.endswith(('.c', '.cpp')):

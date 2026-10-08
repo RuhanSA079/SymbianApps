@@ -44,6 +44,9 @@ apps/rssh/                     rSSH: src/ (C++ UI), symbian/ (platform layer),
 env/Dockerfile                 toolchain image (GnuPoc + GCC 14 + GCCE 3.4.3)
 env/bootstrap.sh               everything above in one go
 env/*.sh, *.py, fix-perl.pl    fetch / install / build / signing / emulator helpers
+apps/common/                   shared static libraries: rsym_mbedtls.lib (mbedTLS 4.1.1),
+                               rsym_net.lib (RSocket TCP, HTTPS client, cJSON, debug log)
+apps/rdrive/                   rDrive: Google Drive client (work in progress)
 env/test-sshd/                 throwaway SSH server for testing rSSH
 sym, emu                       wrappers: build container, EKA2L1 emulator
 ```
@@ -68,6 +71,14 @@ An SSH client for Symbian^3, built on PuTTY 0.85.
   - *Settings*: debug logging (off by default), export or clear the log, forget all host keys.
 - **Not yet:** port forwarding, key-based authentication from the UI, scrollback, a monospace font, and testing on real hardware.
 - **After upgrading PuTTY** regenerate the build files with `python3 apps/rssh/tools/gen-mmp.py`.
+
+## rDrive (work in progress)
+
+A Google Drive client for Symbian^3, on modern TLS from `apps/common`.
+
+- **Working:** HTTPS to Google from the phone. mbedTLS 4.1.1 runs on native sockets on a worker thread; in EKA2L1, *Options → Test HTTPS* reaches `www.googleapis.com` over TLS 1.3 (AES-256-GCM) and gets HTTP 200 in about 1.7 s.
+- **Login design:** Symbian's browser can't do a Google sign-in, so you log in once on a PC with `env/rdrive-auth.py` (OAuth desktop flow, PKCE, your own Google Cloud OAuth client). It writes `keys/rdrive-token.json` for the phone. The script is written but untested.
+- **Not done yet:** the Drive code on the phone (`src/gdrive.h` is only the interface so far): token import and refresh, folder listing, download and upload, plus the file-list UI.
 
 ## Self-signed limits
 

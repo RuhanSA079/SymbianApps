@@ -12,3 +12,4 @@ apps/rssh/build/
 /.fresh-test/
 apps/common/mbedtls/
 apps/common/build/
+apps/common/cjson/

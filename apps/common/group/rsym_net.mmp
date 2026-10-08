@@ -7,7 +7,7 @@ TARGET          rsym_net.lib
 TARGETTYPE      lib
 UID             0 0
 
-USERINCLUDE     ../net ../mbedtls-symbian
+USERINCLUDE     ../net ../cjson ../mbedtls-symbian
 USERINCLUDE     ../mbedtls/tf-psa-crypto/drivers/everest/include
 USERINCLUDE     ../mbedtls/tf-psa-crypto/include
 USERINCLUDE     ../mbedtls/tf-psa-crypto/drivers/builtin/include
@@ -129,6 +129,9 @@ SYSTEMINCLUDE   ../mbedtls/library
 SYSTEMINCLUDE   ../mbedtls-symbian
 SYSTEMINCLUDE   /epoc32/include/stdapis /epoc32/include
 SYSTEMINCLUDE   /epoc32/include/mw /epoc32/include/platform /epoc32/include/platform/mw
+
+SOURCEPATH      ../cjson
+SOURCE          cJSON.c
 
 SOURCEPATH      ../net
 SOURCE          rsym_ca_google.c

@@ -34,7 +34,7 @@ else
     ./sym sh env/install-sdk.sh
 fi
 
-step "4/6 third-party sources (PuTTY for rSSH, mbedTLS for apps/common)"
+step "4/6 third-party sources (PuTTY for rSSH; mbedTLS, cJSON for apps/common)"
 if [ -f apps/rssh/putty/LICENCE ]; then
     echo "PuTTY: already fetched"
 else
@@ -44,6 +44,11 @@ if [ -f apps/common/mbedtls/LICENSE ]; then
     echo "mbedTLS: already fetched"
 else
     env/fetch-mbedtls.sh
+fi
+if [ -f apps/common/cjson/cJSON.c ]; then
+    echo "cJSON: already fetched"
+else
+    env/fetch-cjson.sh
 fi
 
 step "5/6 generated build files"
