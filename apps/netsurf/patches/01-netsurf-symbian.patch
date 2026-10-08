@@ -1,0 +1,278 @@
+--- a/netsurf/content/fetch.c
++++ b/netsurf/content/fetch.c
+@@ -54,7 +54,12 @@
+ #include "content/fetchers.h"
+ #include "content/fetchers/resource.h"
+ #include "content/fetchers/about/about.h"
++#ifdef WITH_CURL
+ #include "content/fetchers/curl.h"
++#endif
++#ifdef WITH_RSYM_FETCH
++nserror fetch_rsym_register(void);
++#endif
+ #include "content/fetchers/data.h"
+ #include "content/fetchers/file/file.h"
+ #include "javascript/fetcher.h"
+@@ -291,6 +296,14 @@
+ 	if (ret != NSERROR_OK) {
+ 		return ret;
+ 	}
++#endif
++
++#ifdef WITH_RSYM_FETCH
++	/* Symbian: http(s) on native sockets + mbedTLS (apps/netsurf/symbian) */
++	ret = fetch_rsym_register();
++	if (ret != NSERROR_OK) {
++		return ret;
++	}
+ #endif
+ 
+ 	ret = fetch_data_register();
+--- a/netsurf/content/fetchers/file/file.c
++++ b/netsurf/content/fetchers/file/file.c
+@@ -676,7 +676,13 @@
+ 	int i; /* directory entry index */
+ 	int n; /* number of directory entries */
+ 
++#ifdef __SYMBIAN32__
++	/* P.I.P.S. declares the BSD (const void *) comparison function */
++	n = scandir(ctx->path, &listing, 0,
++		    (int (*)(const void *, const void *))dir_sort_alpha);
++#else
+ 	n = scandir(ctx->path, &listing, 0, dir_sort_alpha);
++#endif
+ 	if (n < 0) {
+ 		fetch_file_process_error(ctx,
+ 			fetch_file_errno_to_http_code(errno));
+--- a/netsurf/frontends/framebuffer/fbtk/event.c
++++ b/netsurf/frontends/framebuffer/fbtk/event.c
+@@ -302,6 +302,14 @@
+ {
+ 	int ucs4 = -1;
+ 
++#ifdef NSFB_SYMBIAN_UCS4_KEY
++	/* Symbian: characters typed on the phone arrive already translated
++	 * (any keyboard layout), as NSFB_SYMBIAN_UCS4_KEY + the character. */
++	if (code >= NSFB_SYMBIAN_UCS4_KEY &&
++	    !(mods & FBTK_MOD_LCTRL) && !(mods & FBTK_MOD_RCTRL))
++		return code - NSFB_SYMBIAN_UCS4_KEY;
++#endif
++
+ 	if (mods & FBTK_MOD_LSHIFT || mods & FBTK_MOD_RSHIFT) {
+ 		if ((code >= 0) && (code < (int) NOF_ELEMENTS(sh_keymap)))
+ 			ucs4 = sh_keymap[code];
+--- a/netsurf/frontends/framebuffer/gui.c
++++ b/netsurf/frontends/framebuffer/gui.c
+@@ -613,6 +613,7 @@
+ 	return true;
+ }
+ 
++#ifndef __SYMBIAN32__
+ static void framebuffer_run(void)
+ {
+ 	nsfb_event_t event;
+@@ -640,6 +641,8 @@
+ 	}
+ }
+ 
++#endif
++
+ static void gui_quit(void)
+ {
+ 	NSLOG(netsurf, INFO, "gui_quit");
+@@ -2171,32 +2174,38 @@
+ 	.quit = gui_quit,
+ };
+ 
++static struct browser_window *fb_bw;
++
+ /**
+- * Entry point from OS.
++ * Initialise NetSurf and open the first browser window.
+  *
+- * /param argc The number of arguments in the string vector.
+- * /param argv The argument string vector.
+- * /return The return code to the OS
++ * \return 0 on success, -1 if no window could be opened.
+  */
+-int
+-main(int argc, char** argv)
++static int
++fb_start(int argc, char** argv)
+ {
+-	struct browser_window *bw;
+ 	char *options;
+ 	char *messages;
+ 	nsurl *url;
+ 	nserror ret;
+ 	nsfb_t *nsfb;
+-	struct netsurf_table framebuffer_table = {
++	/* netsurf_register keeps a pointer to this */
++	static struct netsurf_table framebuffer_table = {
+ 		.misc = &framebuffer_misc_table,
+ 		.window = &framebuffer_window_table,
+-		.corewindow = framebuffer_core_window_table,
+-		.clipboard = framebuffer_clipboard_table,
+-		.fetch = framebuffer_fetch_table,
+-		.utf8 = framebuffer_utf8_table,
+-		.bitmap = framebuffer_bitmap_table,
+-		.layout = framebuffer_layout_table,
++		.corewindow = NULL, /* set below: not a constant expression */
++		.clipboard = NULL,
++		.fetch = NULL,
++		.utf8 = NULL,
++		.bitmap = NULL,
++		.layout = NULL,
+ 	};
++	framebuffer_table.corewindow = framebuffer_core_window_table;
++	framebuffer_table.clipboard = framebuffer_clipboard_table;
++	framebuffer_table.fetch = framebuffer_fetch_table;
++	framebuffer_table.utf8 = framebuffer_utf8_table;
++	framebuffer_table.bitmap = framebuffer_bitmap_table;
++	framebuffer_table.layout = framebuffer_layout_table;
+ 
+         ret = netsurf_register(&framebuffer_table);
+         if (ret != NSERROR_OK) {
+@@ -2265,15 +2274,26 @@
+ 					      url,
+ 					      NULL,
+ 					      NULL,
+-					      &bw);
++					      &fb_bw);
+ 		nsurl_unref(url);
+ 	}
+ 	if (ret != NSERROR_OK) {
+ 		fb_warn_user("Errorcode:", messages_get_errorcode(ret));
+-	} else {
+-		framebuffer_run();
++		fb_bw = NULL;
++		return -1;
++	}
++	return 0;
++}
+ 
+-		browser_window_destroy(bw);
++/**
++ * Close the browser window and shut NetSurf down.
++ */
++static void
++fb_finish(void)
++{
++	if (fb_bw != NULL) {
++		browser_window_destroy(fb_bw);
++		fb_bw = NULL;
+ 	}
+ 
+ 	netsurf_exit();
+@@ -2286,9 +2306,89 @@
+ 
+ 	/* finalise logging */
+ 	nslog_finalise();
++}
++
++#ifdef __SYMBIAN32__
++/*
++ * Symbian: the app's active scheduler drives NetSurf one step at a time
++ * instead of framebuffer_run() (see apps/netsurf/symbian/nsfb_glue.h).
++ */
++int nsfb_symbian_input_pending(void);
++
++int nsfb_sym_start(int argc, char** argv)
++{
++	return fb_start(argc, argv);
++}
++
++int nsfb_sym_step(void)
++{
++	nsfb_event_t event;
++	int timeout;
++
++	/* handle all queued input */
++	while (fb_complete != true && nsfb_symbian_input_pending()) {
++		if (fbtk_event(fbtk, &event, 0)) {
++			if ((event.type == NSFB_EVENT_CONTROL) &&
++			    (event.value.controlcode ==  NSFB_CONTROL_QUIT))
++				fb_complete = true;
++		}
++	}
++	if (fb_complete == true)
++		return -2;
++
++	timeout = schedule_run();
++
++	if (fbtk_get_redraw_pending(fbtk))
++		timeout = 0;
++
++	fbtk_redraw(fbtk);
++
++	if (fbtk_get_redraw_pending(fbtk))
++		timeout = 0;
++
++	return timeout;
++}
++
++void nsfb_sym_finish(void)
++{
++	fb_finish();
++}
++
++void nsfb_sym_quit(void)
++{
++	fb_complete = true;
++}
++
++/* Pan the first browser window by (dx, dy) pixels (touch drag scrolling). */
++void nsfb_sym_scroll(int dx, int dy)
++{
++	if (window_list == NULL)
++		return;
++	if (dx != 0)
++		widget_scroll_x(window_list, dx, false);
++	if (dy != 0)
++		widget_scroll_y(window_list, dy, false);
++}
++#else
++/**
++ * Entry point from OS.
++ *
++ * /param argc The number of arguments in the string vector.
++ * /param argv The argument string vector.
++ * /return The return code to the OS
++ */
++int
++main(int argc, char** argv)
++{
++	if (fb_start(argc, argv) == 0) {
++		framebuffer_run();
++	}
++
++	fb_finish();
+ 
+ 	return 0;
+ }
++#endif
+ 
+ void gui_resize(fbtk_widget_t *root, int width, int height)
+ {
+--- a/netsurf/utils/config.h
++++ b/netsurf/utils/config.h
+@@ -208,4 +208,19 @@
+ 	#define NO_IPV6
+ #endif
+ 
++/* Symbian^3 with P.I.P.S. (Open C): checked against its libc exports */
++#if defined(__SYMBIAN32__)
++#define HAVE_STRNDUP
++#define HAVE_STRCASESTR
++#undef HAVE_STRCHRNUL
++#undef HAVE_INETATON
++#undef HAVE_INETPTON
++#undef HAVE_DIRFD
++#undef HAVE_UNLINKAT
++#undef HAVE_FSTATAT
++#undef HAVE_EXECINFO
++#undef HAVE_MMAP
++#undef WITH_MMAP
++#endif
++
+ #endif

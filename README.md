@@ -1,6 +1,6 @@
 # SymbianApps
 
-Build Symbian^3 apps (Nokia E7, N8, C7, …; Anna/Belle) on Linux. No Windows, no Wine, no IDE. Includes **rSSH**, an experimental SSH client built on PuTTY 0.85.
+Build Symbian^3 apps (Nokia E7, N8, C7, …; Anna/Belle) on Linux. No Windows, no Wine, no IDE. Includes **rSSH**, an experimental SSH client built on PuTTY 0.85, and a port of the **NetSurf** web browser.
 
 - **Toolchain:** [GnuPoc](https://github.com/mstorsjo/gnupoc-package), which provides native Linux versions of `elf2e32`, `rcomp`, `makesis`, `signsis` and others. The compiler is **GCC 14.2** for `arm-none-symbianelf`, built from source in the Docker image. The original CodeSourcery GCCE 3.4.3 is still available.
 - **Container:** everything runs in an Ubuntu 16.04 Docker image, so the host stays clean.
@@ -17,11 +17,11 @@ The script runs these steps, skipping any that are already done, so it is safe t
 1. Download the SDK zip (866 MB, MD5-checked) into `downloads/`.
 2. Build the `symbian3-env` image. The first build takes 30–40 minutes, mostly spent compiling GCC.
 3. Unpack and patch the SDK into `sdk/symbian3` (2.5 GB).
-4. Fetch PuTTY 0.85 for rSSH, checking its GPG signature and SHA-256, and apply `apps/rssh/patches/`.
-5. Generate rSSH's build files.
+4. Fetch third-party sources, each checked against a pinned commit, signature or SHA-256: PuTTY 0.85 for rSSH; mbedTLS and cJSON for `apps/common`; NetSurf (git, pinned in `env/netsurf.lock`), expat, libpng and libjpeg for NetSurf.
+5. Generate build files. For NetSurf this includes one Linux build of it in a throwaway Ubuntu container (about 10 minutes), which produces its generated sources.
 6. Build every app in `apps/`. Signed packages go to `out/*.sisx`.
 
-It needs `docker`, `wget`, `gpg`, `perl`, `python3` and `md5sum` on the host.
+It needs `docker`, `git`, `curl`, `wget`, `gpg`, `perl`, `python3` and `md5sum` on the host.
 
 ## Build one app
 
@@ -47,6 +47,9 @@ env/*.sh, *.py, fix-perl.pl    fetch / install / build / signing / emulator help
 apps/common/                   shared static libraries: rsym_mbedtls.lib (mbedTLS 4.1.1),
                                rsym_net.lib (RSocket TCP, HTTPS client, cJSON, debug log)
 apps/rdrive/                   rDrive: Google Drive client (work in progress)
+apps/netsurf/                  NetSurf browser: symbian/ (app, fetcher, display surface),
+                               patches/ (applied to NetSurf), tools/, data/;
+                               src/, expat/, libpng/, libjpeg/ (fetched)
 env/test-sshd/                 throwaway SSH server for testing rSSH
 sym, emu                       wrappers: build container, EKA2L1 emulator
 ```
@@ -79,6 +82,28 @@ A Google Drive client for Symbian^3, on modern TLS from `apps/common`.
 - **Working:** HTTPS to Google from the phone. mbedTLS 4.1.1 runs on native sockets on a worker thread; in EKA2L1, *Options → Test HTTPS* reaches `www.googleapis.com` over TLS 1.3 (AES-256-GCM) and gets HTTP 200 in about 1.7 s.
 - **Login design:** Symbian's browser can't do a Google sign-in, so you log in once on a PC with `env/rdrive-auth.py` (OAuth desktop flow, PKCE, your own Google Cloud OAuth client). It writes `keys/rdrive-token.json` for the phone. The script is written but untested.
 - **Not done yet:** the Drive code on the phone (`src/gdrive.h` is only the interface so far): token import and refresh, folder listing, download and upload, plus the file-list UI.
+
+## NetSurf
+
+A port of the [NetSurf](https://www.netsurf-browser.org/) web browser (current git, pinned in `env/netsurf.lock`): HTML, CSS, PNG, JPEG, GIF, BMP and SVG, over HTTP and HTTPS. There is no JavaScript yet.
+
+- **How it fits together:**
+  - NetSurf's framebuffer frontend draws into a libnsfb surface backed by an ordinary bitmap, which the Avkon app (`apps/netsurf/symbian/nsapp.cpp`) shows. An active object runs NetSurf one step at a time, so there is no blocking main loop.
+  - Fetching uses `apps/common`'s HTTP(S) client (native sockets and mbedTLS, TLS 1.3) on worker threads, in place of curl. Certificates are checked against NetSurf's CA bundle, which comes from Mozilla's.
+  - Changes to NetSurf itself are small, in `apps/netsurf/patches/`. After editing `apps/netsurf/src`, regenerate the patches with `apps/netsurf/tools/mkpatch.sh netsurf libnsfb`.
+- **App icon:** NetSurf's own globe logo. `prebuild.sh` converts `frontends/gtk/res/netsurf.xpm` into an 88×88 bitmap with a soft mask (`tools/gen-icon.py`), and `mifconv` packs it into `netsurf_aif.mif`/`.mbm`.
+- **Building:** NetSurf and its libraries are not built by abld. abld names object files by file name only, and NetSurf has many files with the same name. Instead, `apps/netsurf/prebuild.sh`, which `env/build.sh` runs first, compiles them with abld's exact GCC flags into `ns_*.lib` archives that the `.mmp` links.
+- **Using it:**
+  - Tap a link to click it; drag on the page to scroll.
+  - The toolbar has back, history, forward, stop, reload and the address bar.
+  - *Options*: go to address (or search), back, forward, reload, stop, home page, debug log, About, Exit.
+  - *Options → Screen orientation*: landscape (the default, for the E7's keyboard), portrait or automatic. The choice is remembered.
+  - The keyboard types into pages and the address bar, including Ctrl+C, Ctrl+V and other Ctrl shortcuts.
+- **Testing:**
+  - `C:\Data\netsurf-url.txt` (first line) opens that page at start.
+  - With the debug log on, the app writes `netsurf-debug.log` and NetSurf's own `netsurf.log` to `X:\private\E5A1E030\` on the drive NetSurf is installed on. In EKA2L1 that is usually `emu-data/EKA2L1/data/drives/e/private/E5A1E030/`.
+- **In EKA2L1:** pages work but load slowly. Each TLS handshake takes 10–40 s there (rDrive's lone request takes about 5 s), and the emulator delivers timer events about once a second. Expect real hardware to be much faster, but it has not been tested yet.
+- **Not yet:** JavaScript (Duktape is in NetSurf's tree, but not built yet); proper fonts (NetSurf's built-in bitmap font is used for now); connection reuse; downloads; certificate-error override; testing on a real phone.
 
 ## Self-signed limits
 

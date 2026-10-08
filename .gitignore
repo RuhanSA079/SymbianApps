@@ -13,3 +13,10 @@ apps/rssh/build/
 apps/common/mbedtls/
 apps/common/build/
 apps/common/cjson/
+apps/netsurf/src/
+apps/netsurf/build/
+apps/netsurf/gen/
+apps/netsurf/expat/
+apps/netsurf/libpng/
+apps/netsurf/libjpeg/
+apps/netsurf/sis/

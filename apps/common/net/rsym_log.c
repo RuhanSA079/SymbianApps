@@ -5,6 +5,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include "rsym_log.h"
 
 #define MAX_LOG (512 * 1024)
@@ -12,6 +13,7 @@
 static char log_path[160];
 static char flag_path[160];
 static int ready = 0, enabled = 0;
+static struct timeval t0;
 
 void rsym_log_init(const char *dir, const char *name)
 {
@@ -20,6 +22,7 @@ void rsym_log_init(const char *dir, const char *name)
     snprintf(flag_path, sizeof(flag_path), "%s/debug-logging.on", dir);
     enabled = stat(flag_path, &st) == 0;
     ready = 1;
+    gettimeofday(&t0, NULL);
     if (enabled && stat(log_path, &st) == 0 && st.st_size > MAX_LOG)
         remove(log_path);
     rsym_log("---- %s started", name);
@@ -34,6 +37,14 @@ void rsym_log(const char *fmt, ...)
     fp = fopen(log_path, "a");
     if (!fp)
         return;
+    {
+        /* seconds since rsym_log_init, to the millisecond */
+        struct timeval now;
+        long ms;
+        gettimeofday(&now, NULL);
+        ms = (now.tv_sec - t0.tv_sec) * 1000L + (now.tv_usec - t0.tv_usec) / 1000L;
+        fprintf(fp, "[%ld.%03ld] ", ms / 1000, ms % 1000);
+    }
     va_start(ap, fmt);
     vfprintf(fp, fmt, ap);
     va_end(ap);

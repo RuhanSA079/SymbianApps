@@ -5,6 +5,8 @@
 set -e
 APP=${1:?usage: env/build.sh apps/<name> [urel|udeb]}
 CFG=${2:-urel}
+# Apps with prebuilt parts (NetSurf's C libraries) build those first.
+[ -x "/work/$APP/prebuild.sh" ] && "/work/$APP/prebuild.sh"
 cd "/work/$APP/group"
 bldmake bldfiles
 # abld does not notice a compiler switch (GCCE_BIN), so clean when it changes.

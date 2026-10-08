@@ -1,0 +1,18 @@
+--- a/libnsfb/src/surface/ram.c
++++ b/libnsfb/src/surface/ram.c
+@@ -129,6 +129,15 @@
+ 
+ NSFB_SURFACE_DEF(ram, NSFB_SURFACE_RAM, &ram_rtns)
+ 
++#ifdef __SYMBIAN32__
++/* Symbian executables do not run C constructors from static libraries, so
++ * the app registers this surface (used for every image bitmap) itself. */
++void nsfb_ram_register(void)
++{
++    ram_register_surface();
++}
++#endif
++
+ /*
+  * Local variables:
+  *  c-basic-offset: 4

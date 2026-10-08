@@ -1,7 +1,7 @@
 #!/bin/sh
 # Set up the whole build environment from a fresh checkout and build every
 # app in apps/. Runs on the HOST; each step is skipped if already done, so it
-# is safe to re-run. Needs: docker, wget, gpg, perl, python3, md5sum.
+# is safe to re-run. Needs: docker, git, curl, wget, gpg, perl, python3, md5sum.
 #
 #   env/bootstrap.sh            set up + build all apps (packages in out/)
 #
@@ -15,7 +15,7 @@ export SYM_IMAGE="${SYM_IMAGE:-symbian3-env}"
 
 step() { printf '\n==== %s\n' "$*"; }
 
-for tool in docker wget gpg perl python3 md5sum; do
+for tool in docker git curl wget gpg perl python3 md5sum; do
     command -v $tool >/dev/null || { echo "missing tool: $tool" >&2; exit 1; }
 done
 
@@ -34,7 +34,7 @@ else
     ./sym sh env/install-sdk.sh
 fi
 
-step "4/6 third-party sources (PuTTY for rSSH; mbedTLS, cJSON for apps/common)"
+step "4/6 third-party sources (PuTTY; mbedTLS, cJSON; NetSurf, expat, libpng, libjpeg)"
 if [ -f apps/rssh/putty/LICENCE ]; then
     echo "PuTTY: already fetched"
 else
@@ -50,10 +50,32 @@ if [ -f apps/common/cjson/cJSON.c ]; then
 else
     env/fetch-cjson.sh
 fi
+if [ -f apps/netsurf/src/netsurf/Makefile ]; then
+    echo "NetSurf: already fetched"
+else
+    env/fetch-netsurf.sh
+fi
+if [ -f apps/netsurf/expat/lib/xmlparse.c ]; then
+    echo "expat: already fetched"
+else
+    env/fetch-expat.sh
+fi
+if [ -f apps/netsurf/libpng/png.c ] && [ -f apps/netsurf/libjpeg/jdapimin.c ]; then
+    echo "libpng, libjpeg: already fetched"
+else
+    env/fetch-imagelibs.sh
+fi
 
 step "5/6 generated build files"
 python3 -I apps/rssh/tools/gen-mmp.py
 python3 -I apps/common/tools/gen-mmp.py
+# NetSurf's generated sources and file lists, from a throwaway Linux build
+# of it (ubuntu:24.04 container, ~10 min)
+if [ -f apps/netsurf/build/host/compile.json ]; then
+    echo "NetSurf host build: already done"
+else
+    env/netsurf-hostgen.sh
+fi
 
 step "6/6 apps (apps/common first: other apps link its libraries)"
 for bld in apps/*/group/bld.inf; do

@@ -26,6 +26,13 @@
 
 static mbedtls_x509_crt g_ca;
 static int g_inited = 0;
+static const char *g_ca_pem = rsym_ca_google_pem;
+
+void rsym_https_set_ca(const char *pem)
+{
+    if (!g_inited && pem)
+        g_ca_pem = pem;
+}
 
 int rsym_https_init(void)
 {
@@ -39,8 +46,12 @@ int rsym_https_init(void)
         return (int)st;
     }
     mbedtls_x509_crt_init(&g_ca);
-    ret = mbedtls_x509_crt_parse(&g_ca, (const unsigned char *)rsym_ca_google_pem,
-                                 strlen(rsym_ca_google_pem) + 1);
+    /* A bundle may hold certificates mbedTLS cannot parse; ret > 0 counts
+     * those, which is fine as long as some were loaded. */
+    ret = mbedtls_x509_crt_parse(&g_ca, (const unsigned char *)g_ca_pem,
+                                 strlen(g_ca_pem) + 1);
+    if (ret > 0)
+        rsym_log("https: %d CA certificates skipped", ret);
     if (ret < 0) {
         rsym_log("https: CA parse -> -0x%04x", (unsigned)-ret);
         mbedtls_x509_crt_free(&g_ca);
@@ -236,11 +247,23 @@ void rsym_http_response_free(rsym_http_response *resp)
     resp->body = NULL;
 }
 
-static int ssl_write_all(mbedtls_ssl_context *ssl, const unsigned char *p, size_t len)
+/* ------------------------------------------------------------------ */
+/* the connection: TLS or plain                                         */
+/* ------------------------------------------------------------------ */
+
+typedef struct {
+    int tls;
+    mbedtls_ssl_context *ssl;
+    bio_ctx *bio;
+} conn;
+
+/* 0 or a negative mbedTLS / Symbian error */
+static int conn_write_all(conn *c, const unsigned char *p, size_t len)
 {
     while (len > 0) {
-        int n = mbedtls_ssl_write(ssl, p, len);
-        if (n == MBEDTLS_ERR_SSL_WANT_READ || n == MBEDTLS_ERR_SSL_WANT_WRITE)
+        int n = c->tls ? mbedtls_ssl_write(c->ssl, p, len)
+                       : rsym_tcp_send(c->bio->tcp, p, (int)len, c->bio->timeout_ms);
+        if (c->tls && (n == MBEDTLS_ERR_SSL_WANT_READ || n == MBEDTLS_ERR_SSL_WANT_WRITE))
             continue;
         if (n < 0)
             return n;
@@ -249,6 +272,38 @@ static int ssl_write_all(mbedtls_ssl_context *ssl, const unsigned char *p, size_
     }
     return 0;
 }
+
+/* >0 bytes, 0 end of stream, <0 error */
+static int conn_read(conn *c, unsigned char *buf, int len)
+{
+    if (!c->tls) {
+        int n = rsym_tcp_recv(c->bio->tcp, buf, len, c->bio->timeout_ms);
+        if (n < 0)
+            c->bio->last_err = n;
+        return n;
+    }
+    for (;;) {
+        int n = mbedtls_ssl_read(c->ssl, buf, (size_t)len);
+        if (n == MBEDTLS_ERR_SSL_WANT_READ || n == MBEDTLS_ERR_SSL_WANT_WRITE ||
+            n == MBEDTLS_ERR_SSL_RECEIVED_NEW_SESSION_TICKET)
+            continue;
+        if (n == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY || n == MBEDTLS_ERR_SSL_CONN_EOF)
+            return 0;
+        return n;
+    }
+}
+
+static void set_io_error(rsym_http_response *r, conn *c, const char *what, int err)
+{
+    if (!c->tls || c->bio->last_err)
+        snprintf(r->error, sizeof(r->error), "%s: %s (%d)", what,
+                 rsym_tcp_strerror(c->bio->last_err ? c->bio->last_err : err),
+                 c->bio->last_err ? c->bio->last_err : err);
+    else
+        set_error(r, what, err);
+}
+
+#define CANCELLED(req) ((req)->cancel && *(req)->cancel)
 
 /* ------------------------------------------------------------------ */
 /* the request                                                          */
@@ -260,10 +315,12 @@ int rsym_https_request(const rsym_http_request *req, rsym_http_response *resp)
     mbedtls_ssl_config conf;
     bio_ctx bio;
     body_state bs;
+    conn c;
     char *head = NULL, *hdrbuf = NULL;
-    int hdr_len = 0, have_headers = 0, ret = -1, err;
+    int hdr_len = 0, have_headers = 0, ret = -1, err, no_body = 0;
     long content_length = -1;
-    int port = req->port ? req->port : 443;
+    int tls = !req->plain;
+    int port = req->port ? req->port : (tls ? 443 : 80);
     unsigned char rbuf[4096];
 
     memset(resp, 0, sizeof(*resp));
@@ -272,8 +329,11 @@ int rsym_https_request(const rsym_http_request *req, rsym_http_response *resp)
     bs.req = req;
     bs.resp = resp;
     bio.timeout_ms = req->timeout_ms > 0 ? req->timeout_ms : DEFAULT_TIMEOUT_MS;
+    c.tls = tls;
+    c.ssl = &ssl;
+    c.bio = &bio;
 
-    if ((err = rsym_https_init()) != 0) {
+    if (tls && (err = rsym_https_init()) != 0) {
         set_error(resp, "TLS initialisation failed", err);
         return -1;
     }
@@ -281,79 +341,89 @@ int rsym_https_request(const rsym_http_request *req, rsym_http_response *resp)
     mbedtls_ssl_init(&ssl);
     mbedtls_ssl_config_init(&conf);
 
-    rsym_log("https: %s https://%s%s", req->method, req->host, req->path);
+    rsym_log("https: %s %s://%s:%d%s", req->method, tls ? "https" : "http",
+             req->host, port, req->path);
     bio.tcp = rsym_tcp_connect(req->host, port, bio.timeout_ms, &err);
     if (!bio.tcp) {
         snprintf(resp->error, sizeof(resp->error), "Cannot connect to %s: %s (%d)",
                  req->host, rsym_tcp_strerror(err), err);
         goto out;
     }
+    if (CANCELLED(req))
+        goto cancelled;
 
-    if ((err = mbedtls_ssl_config_defaults(&conf, MBEDTLS_SSL_IS_CLIENT,
-                                           MBEDTLS_SSL_TRANSPORT_STREAM,
-                                           MBEDTLS_SSL_PRESET_DEFAULT)) != 0) {
-        set_error(resp, "TLS configuration failed", err);
-        goto out;
-    }
-    mbedtls_ssl_conf_authmode(&conf, MBEDTLS_SSL_VERIFY_REQUIRED);
-    mbedtls_ssl_conf_ca_chain(&conf, &g_ca, NULL);
-    mbedtls_ssl_conf_read_timeout(&conf, (uint32_t)bio.timeout_ms);
-    if ((err = mbedtls_ssl_setup(&ssl, &conf)) != 0 ||
-        (err = mbedtls_ssl_set_hostname(&ssl, req->host)) != 0) {
-        set_error(resp, "TLS setup failed", err);
-        goto out;
-    }
-    mbedtls_ssl_set_bio(&ssl, &bio, bio_send, NULL, bio_recv_timeout);
-
-    do {
-        err = mbedtls_ssl_handshake(&ssl);
-    } while (err == MBEDTLS_ERR_SSL_WANT_READ || err == MBEDTLS_ERR_SSL_WANT_WRITE);
-    if (err != 0) {
-        uint32_t flags = mbedtls_ssl_get_verify_result(&ssl);
-        if (flags != 0 && flags != (uint32_t)-1) {
-            char vbuf[160];
-            mbedtls_x509_crt_verify_info(vbuf, sizeof(vbuf), "", flags);
-            snprintf(resp->error, sizeof(resp->error),
-                     "Certificate check failed for %s: %s", req->host, vbuf);
-        } else if (bio.last_err) {
-            snprintf(resp->error, sizeof(resp->error), "TLS handshake: %s (%d)",
-                     rsym_tcp_strerror(bio.last_err), bio.last_err);
-        } else {
-            set_error(resp, "TLS handshake failed", err);
+    if (tls) {
+        if ((err = mbedtls_ssl_config_defaults(&conf, MBEDTLS_SSL_IS_CLIENT,
+                                               MBEDTLS_SSL_TRANSPORT_STREAM,
+                                               MBEDTLS_SSL_PRESET_DEFAULT)) != 0) {
+            set_error(resp, "TLS configuration failed", err);
+            goto out;
         }
-        goto out;
+        mbedtls_ssl_conf_authmode(&conf, MBEDTLS_SSL_VERIFY_REQUIRED);
+        mbedtls_ssl_conf_ca_chain(&conf, &g_ca, NULL);
+        mbedtls_ssl_conf_read_timeout(&conf, (uint32_t)bio.timeout_ms);
+        if ((err = mbedtls_ssl_setup(&ssl, &conf)) != 0 ||
+            (err = mbedtls_ssl_set_hostname(&ssl, req->host)) != 0) {
+            set_error(resp, "TLS setup failed", err);
+            goto out;
+        }
+        mbedtls_ssl_set_bio(&ssl, &bio, bio_send, NULL, bio_recv_timeout);
+
+        do {
+            err = mbedtls_ssl_handshake(&ssl);
+        } while (err == MBEDTLS_ERR_SSL_WANT_READ || err == MBEDTLS_ERR_SSL_WANT_WRITE);
+        if (err != 0) {
+            uint32_t flags = mbedtls_ssl_get_verify_result(&ssl);
+            if (flags != 0 && flags != (uint32_t)-1) {
+                char vbuf[160];
+                mbedtls_x509_crt_verify_info(vbuf, sizeof(vbuf), "", flags);
+                snprintf(resp->error, sizeof(resp->error),
+                         "Certificate check failed for %s: %s", req->host, vbuf);
+                resp->cert_error = 1;
+            } else if (bio.last_err) {
+                snprintf(resp->error, sizeof(resp->error), "TLS handshake: %s (%d)",
+                         rsym_tcp_strerror(bio.last_err), bio.last_err);
+            } else {
+                set_error(resp, "TLS handshake failed", err);
+            }
+            goto out;
+        }
+        rsym_log("https: handshake ok, %s %s", mbedtls_ssl_get_version(&ssl),
+                 mbedtls_ssl_get_ciphersuite(&ssl));
     }
-    rsym_log("https: handshake ok, %s %s", mbedtls_ssl_get_version(&ssl),
-             mbedtls_ssl_get_ciphersuite(&ssl));
 
     /* request line and headers */
     {
         int has_body = req->body && req->body_len > 0;
         int need_length = has_body || !strcmp(req->method, "POST") ||
                           !strcmp(req->method, "PUT") || !strcmp(req->method, "PATCH");
+        const char *ua = req->user_agent ? req->user_agent : "rsym/0.1 (Symbian)";
+        int default_port = port == (tls ? 443 : 80);
         size_t hlen = strlen(req->method) + strlen(req->path) + strlen(req->host) +
-                      (req->headers ? strlen(req->headers) : 0) + 200;
+                      strlen(ua) + (req->headers ? strlen(req->headers) : 0) + 200;
         head = (char *)malloc(hlen);
         if (!head) {
             snprintf(resp->error, sizeof(resp->error), "Out of memory");
             goto out;
         }
-        snprintf(head, hlen,
-                 "%s %s HTTP/1.1\r\n"
-                 "Host: %s\r\n"
-                 "User-Agent: rsym/0.1 (Symbian)\r\n"
+        snprintf(head, hlen, "%s %s HTTP/1.1\r\nHost: %s", req->method, req->path, req->host);
+        if (!default_port)
+            snprintf(head + strlen(head), hlen - strlen(head), ":%d", port);
+        snprintf(head + strlen(head), hlen - strlen(head),
+                 "\r\n"
+                 "User-Agent: %s\r\n"
                  "Accept-Encoding: identity\r\n"
                  "Connection: close\r\n"
                  "%s",
-                 req->method, req->path, req->host, req->headers ? req->headers : "");
+                 ua, req->headers ? req->headers : "");
         if (need_length)
             snprintf(head + strlen(head), hlen - strlen(head),
                      "Content-Length: %d\r\n", has_body ? req->body_len : 0);
         strncat(head, "\r\n", hlen - strlen(head) - 1);
-        if ((err = ssl_write_all(&ssl, (const unsigned char *)head, strlen(head))) != 0 ||
-            (has_body && (err = ssl_write_all(&ssl, (const unsigned char *)req->body,
-                                              (size_t)req->body_len)) != 0)) {
-            set_error(resp, "Sending the request failed", err);
+        if ((err = conn_write_all(&c, (const unsigned char *)head, strlen(head))) != 0 ||
+            (has_body && (err = conn_write_all(&c, (const unsigned char *)req->body,
+                                               (size_t)req->body_len)) != 0)) {
+            set_io_error(resp, &c, "Sending the request failed", err);
             goto out;
         }
     }
@@ -365,14 +435,14 @@ int rsym_https_request(const rsym_http_request *req, rsym_http_response *resp)
         goto out;
     }
     for (;;) {
-        int n = mbedtls_ssl_read(&ssl, rbuf, sizeof(rbuf));
-        if (n == MBEDTLS_ERR_SSL_WANT_READ || n == MBEDTLS_ERR_SSL_WANT_WRITE ||
-            n == MBEDTLS_ERR_SSL_RECEIVED_NEW_SESSION_TICKET)
-            continue;
-        if (n == 0 || n == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY || n == MBEDTLS_ERR_SSL_CONN_EOF)
+        int n;
+        if (CANCELLED(req))
+            goto cancelled;
+        n = conn_read(&c, rbuf, sizeof(rbuf));
+        if (n == 0)
             break;                                      /* end of stream */
         if (n < 0) {
-            set_error(resp, "Reading the response failed", n);
+            set_io_error(resp, &c, "Reading the response failed", n);
             goto out;
         }
         if (!have_headers) {
@@ -397,16 +467,38 @@ int rsym_https_request(const rsym_http_request *req, rsym_http_response *resp)
                 char val[32];
                 *end = 0;
                 resp->headers = strdup(hdrbuf);
+                if (!resp->headers) {
+                    snprintf(resp->error, sizeof(resp->error), "Out of memory");
+                    goto out;
+                }
                 if (sscanf(hdrbuf, "HTTP/%*d.%*d %d", &resp->status) != 1) {
                     snprintf(resp->error, sizeof(resp->error), "Not an HTTP response");
                     goto out;
+                }
+                if (resp->status >= 100 && resp->status < 200) {
+                    /* interim response (e.g. 103 Early Hints): skip it */
+                    memmove(hdrbuf, hdrbuf + head_bytes, hdr_len - head_bytes);
+                    hdr_len -= head_bytes;
+                    hdrbuf[hdr_len] = 0;
+                    free(resp->headers);
+                    resp->headers = NULL;
+                    resp->status = 0;
+                    continue;
                 }
                 if (header_value(resp->headers, "Transfer-Encoding", val, sizeof(val)) &&
                     strstr(val, "chunked"))
                     bs.chunked = 1;
                 else if (header_value(resp->headers, "Content-Length", val, sizeof(val)))
                     content_length = atol(val);
+                if (!strcmp(req->method, "HEAD") || resp->status == 204 ||
+                    resp->status == 304)
+                    no_body = 1;
                 have_headers = 1;
+                if (req->on_headers &&
+                    req->on_headers(req->body_ctx, resp->status, resp->headers))
+                    break;
+                if (no_body)
+                    break;
                 if (extra > 0) {
                     /* the remainder of this read: header copy plus what didn't fit */
                     const unsigned char *p = rbuf + (n - extra);
@@ -429,7 +521,14 @@ int rsym_https_request(const rsym_http_request *req, rsym_http_response *resp)
     ret = 0;
     goto out;
 
+cancelled:
+    snprintf(resp->error, sizeof(resp->error), "Transfer cancelled");
+    resp->cancelled = 1;
+    goto out;
+
 body_err:
+    if (CANCELLED(req))
+        resp->cancelled = 1;
     snprintf(resp->error, sizeof(resp->error),
              bs.aborted ? "Transfer cancelled" : "Out of memory reading the response");
 
@@ -437,7 +536,8 @@ out:
     if (ret != 0)
         rsym_log("https: failed: %s", resp->error);
     if (bio.tcp) {
-        mbedtls_ssl_close_notify(&ssl);
+        if (tls)
+            mbedtls_ssl_close_notify(&ssl);
         rsym_tcp_close(bio.tcp);
     }
     mbedtls_ssl_free(&ssl);

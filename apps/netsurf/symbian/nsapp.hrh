@@ -1,0 +1,22 @@
+/* nsapp.hrh: command IDs shared by netsurf.rss and nsapp.cpp. */
+#ifndef NSAPP_HRH
+#define NSAPP_HRH
+
+enum TNsCommand
+    {
+    ENsCmdOpenUrl = 0x6101,
+    ENsCmdBack,
+    ENsCmdForward,
+    ENsCmdReload,
+    ENsCmdStop,
+    ENsCmdHome,
+    ENsCmdRotate,           /* cascade: the three below */
+    ENsCmdLandscape,
+    ENsCmdPortrait,
+    ENsCmdAutoRotate,
+    ENsCmdDebugLog,
+    ENsCmdAbout,
+    ENsCmdExit              /* our own Exit: Avkon turns EAknCmdExit into EEikCmdExit */
+    };
+
+#endif

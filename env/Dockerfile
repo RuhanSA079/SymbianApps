@@ -32,6 +32,11 @@ RUN sh /tmp/build-gcce.sh /opt/symbian/gcc-14.2 /tmp/gcce-build && rm -rf /tmp/g
 # ---- final image ----
 FROM base
 
+# python3: NetSurf's build steps (apps/netsurf/prebuild.sh). Added here, not
+# in base, so the GCC stage stays cached.
+RUN apt-get update && apt-get install -y --no-install-recommends python3 \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /opt/symbian/src
 
 # GnuPoc, pinned.

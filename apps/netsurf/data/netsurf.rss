@@ -1,0 +1,129 @@
+/* netsurf.rss: NetSurf for Symbian^3 resources. */
+NAME NSRF
+
+#include <eikon.rh>
+#include <avkon.rsg>   /* before avkon.rh: its STRUCT defaults use R_AVKON_* */
+#include <avkon.rh>
+#include <avkon.hrh>
+#include <appinfo.rh>
+#include "../symbian/nsapp.hrh"
+
+RESOURCE RSS_SIGNATURE {}
+RESOURCE TBUF { buf = ""; }
+
+RESOURCE EIK_APP_INFO
+    {
+    menubar = r_ns_menubar;
+    cba = R_AVKON_SOFTKEYS_OPTIONS_BACK;
+    }
+
+RESOURCE MENU_BAR r_ns_menubar
+    {
+    titles = { MENU_TITLE { menu_pane = r_ns_menu; } };
+    }
+
+RESOURCE MENU_PANE r_ns_menu
+    {
+    items =
+        {
+        MENU_ITEM { command = ENsCmdOpenUrl; txt = "Go to address"; },
+        MENU_ITEM { command = ENsCmdBack; txt = "Back"; },
+        MENU_ITEM { command = ENsCmdForward; txt = "Forward"; },
+        MENU_ITEM { command = ENsCmdReload; txt = "Reload"; },
+        MENU_ITEM { command = ENsCmdStop; txt = "Stop"; },
+        MENU_ITEM { command = ENsCmdHome; txt = "Home page"; },
+        MENU_ITEM { command = ENsCmdRotate; txt = "Screen orientation"; cascade = r_ns_rotate_menu; },
+        MENU_ITEM { command = ENsCmdDebugLog; txt = "Debug log"; },
+        MENU_ITEM { command = ENsCmdAbout; txt = "About"; },
+        MENU_ITEM { command = ENsCmdExit; txt = "Exit"; }
+        };
+    }
+
+RESOURCE MENU_PANE r_ns_rotate_menu
+    {
+    items =
+        {
+        MENU_ITEM { command = ENsCmdLandscape; txt = "Landscape"; flags = EEikMenuItemRadioStart; },
+        MENU_ITEM { command = ENsCmdPortrait; txt = "Portrait"; flags = EEikMenuItemRadioMiddle; },
+        MENU_ITEM { command = ENsCmdAutoRotate; txt = "Automatic"; flags = EEikMenuItemRadioEnd; }
+        };
+    }
+
+/* Address entry: no predictive text, URL special characters. */
+RESOURCE DIALOG r_ns_url_query
+    {
+    flags = EGeneralQueryFlags;
+    buttons = R_AVKON_SOFTKEYS_OK_CANCEL;
+    items =
+        {
+        DLG_LINE
+            {
+            type = EAknCtQuery;
+            id = EGeneralQuery;
+            control = AVKON_DATA_QUERY
+                {
+                layout = EDataLayout;
+                label = "Address or search:";
+                control = EDWIN
+                    {
+                    width = 40;
+                    maxlength = 1024;
+                    lines = 3;
+                    avkon_flags = EAknEditorFlagNoT9 | EAknEditorFlagLatinInputModesOnly;
+                    default_case = EAknEditorLowerCase;
+                    allowed_case_modes = EAknEditorAllCaseModes;
+                    special_character_table = R_AVKON_URL_SPECIAL_CHARACTER_TABLE_DIALOG;
+                    };
+                };
+            }
+        };
+    }
+
+RESOURCE DIALOG r_ns_yesno_query
+    {
+    flags = EGeneralQueryFlags;
+    buttons = R_AVKON_SOFTKEYS_YES_NO;
+    items =
+        {
+        DLG_LINE
+            {
+            type = EAknCtQuery;
+            id = EGeneralQuery;
+            control = AVKON_CONFIRMATION_QUERY
+                {
+                layout = EConfirmationQueryLayout;
+                label = "";
+                };
+            }
+        };
+    }
+
+RESOURCE DIALOG r_ns_ok_query
+    {
+    flags = EGeneralQueryFlags;
+    buttons = R_AVKON_SOFTKEYS_OK_EMPTY;
+    items =
+        {
+        DLG_LINE
+            {
+            type = EAknCtQuery;
+            id = EGeneralQuery;
+            control = AVKON_CONFIRMATION_QUERY
+                {
+                layout = EConfirmationQueryLayout;
+                label = "";
+                };
+            }
+        };
+    }
+
+RESOURCE LOCALISABLE_APP_INFO r_ns_localisable_app_info
+    {
+    short_caption = "NetSurf";
+    caption_and_icon = CAPTION_AND_ICON_INFO
+        {
+        caption = "NetSurf";
+        number_of_icons = 1;    /* NetSurf's globe, made by prebuild.sh */
+        icon_file = "\\resource\\apps\\netsurf_aif.mif";
+        };
+    }

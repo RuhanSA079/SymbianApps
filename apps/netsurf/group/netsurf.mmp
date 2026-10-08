@@ -1,0 +1,43 @@
+// netsurf.mmp - NetSurf web browser for Symbian^3.
+// NetSurf and its libraries are prebuilt as ns_*.lib by apps/netsurf/prebuild.sh
+// (abld cannot build them: see apps/netsurf/tools/gen-libmk.py); this
+// project adds the Avkon app around them.
+// 0xE....... is the unprotected test-UID range: fine for self-signed builds.
+
+TARGET          netsurf.exe
+TARGETTYPE      exe
+UID             0x100039CE 0xE5A1E030
+SECUREID        0xE5A1E030
+VENDORID        0
+CAPABILITY      NetworkServices
+EPOCSTACKSIZE   0x14000
+EPOCHEAPSIZE    0x100000 0x4000000
+
+USERINCLUDE     ../symbian ../../common/net
+SYSTEMINCLUDE   ../src/libnsfb/include
+SYSTEMINCLUDE   /epoc32/include /epoc32/include/mw /epoc32/include/platform
+SYSTEMINCLUDE   /epoc32/include/platform/mw /epoc32/include/stdapis
+
+SOURCEPATH      ../data
+START RESOURCE  netsurf.rss
+HEADER
+TARGETPATH      /resource/apps
+END
+START RESOURCE  netsurf_reg.rss
+TARGETPATH      /private/10003a3f/import/apps
+END
+
+SOURCEPATH      ../symbian
+SOURCE          nsapp.cpp
+
+// Order matters (single pass): NetSurf first, then what it uses.
+STATICLIBRARY   ns_core.lib ns_png.lib ns_jpeg.lib ns_svgtiny.lib ns_dom.lib ns_expat.lib ns_hubbub.lib
+STATICLIBRARY   ns_css.lib ns_parserutils.lib ns_wapcaplet.lib ns_nsfb.lib
+STATICLIBRARY   ns_nsgif.lib ns_nsbmp.lib ns_rosprite.lib ns_nsutils.lib
+STATICLIBRARY   ns_utf8proc.lib ns_nspsl.lib ns_nslog.lib
+STATICLIBRARY   rsym_net.lib rsym_mbedtls.lib ns_compat.lib
+LIBRARY         euser.lib apparc.lib cone.lib eikcore.lib avkon.lib
+LIBRARY         eikdlg.lib eikctl.lib eikcoctl.lib efsrv.lib gdi.lib bafl.lib
+LIBRARY         fbscli.lib ws32.lib
+LIBRARY         esock.lib insock.lib random.lib charconv.lib hal.lib
+LIBRARY         libc.lib libm.lib libz.lib

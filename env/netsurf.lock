@@ -1,0 +1,20 @@
+# NetSurf sources for apps/netsurf, pinned to exact commits (env/fetch-netsurf.sh).
+# Canonical server: git://git.netsurf-browser.org/<name>.git
+# <name> <commit>
+buildsystem 771d7cb0691831aa5962855015b2f25ec527a9ee
+netsurf a471a0d44274ec57fee5e5f30ae59fbd2ad02656
+nsgenbind 44c6736937ae17d4065d02959b82813b8f06a51e
+libwapcaplet c7c128d3eb3223b216c974471f82e9337fbcf4ba
+libparserutils 6b0cbf086ca8eb8fe74b69f0c9ecf274eb2397ca
+libhubbub 6651b8cf87a4aa87bcdb2ff024a02659cd3f9402
+libdom f69781e1f062444b5af3f62d431d7d94018da53b
+libcss 499f1c4601ad39942fd1b2204053a387bec9b989
+libnsutils 0bd39060740b6163bd50875326654a722df97eb2
+libnsgif 22e99eb6818b1284d0f3ff1b7f46159e87221220
+libnsbmp f5f1da5a7690b12c6394bbf4c514c0718da79323
+libnslog 9c19d16e196a5226ed89f3aa8c4befffeff716fe
+libutf8proc 0d22740b0de2636307cb95c928b244263ed17caa
+libnspsl b170f84028fb01364f89020f53e4cc30c10f2fd2
+libnsfb b701cdce7241c3747ccd78658a365db0983ebe24
+libsvgtiny 7ede71b572a1672ee9ddb7b3e626ddb17b4c8170
+librosprite 86abb270856a30325bf7fbe6af791f9d0b00d734
