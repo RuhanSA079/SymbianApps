@@ -1,6 +1,7 @@
 /*
- * rsym_platform.cpp: the platform hooks mbedTLS needs on Symbian^3.
- *  - entropy: TRandom::SecureRandomL (the system random server)
+ * rsym_platform.cpp: the platform hooks mbedTLS needs on Symbian.
+ *  - entropy: the system random server (TRandom::SecureRandomL on Symbian^3;
+ *    GenerateRandomBytesL on S60 3rd's 9.2, which has no TRandom)
  *  - mbedtls_ms_time(): milliseconds from the system clock
  * mbedTLS headers are C; the two prototypes are declared here by hand.
  */
@@ -24,7 +25,11 @@ extern "C" int mbedtls_platform_get_entropy(rsym_uint32 flags,
         return KPsaErrorNotSupported;
     TPtr8 buf(output, 0, output_size);
     buf.SetLength(output_size);
+#ifdef SYMBIAN_CRYPTOSPI
     TRAPD(err, TRandom::SecureRandomL(buf));
+#else
+    TRAPD(err, GenerateRandomBytesL(buf));
+#endif
     if (err != KErrNone)
         return KPsaErrorInsufficientEntropy;
     *estimate_bits = output_size * 8;

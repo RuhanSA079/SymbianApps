@@ -1,0 +1,23 @@
+; rJellyfin installation package for S60 3rd Edition FP1 and later (Nokia E90, ...)
+; built with: SYM_SDK=s60v31 ./sym sh env/build.sh apps/rjellyfin  (or env/build-release.sh)
+&EN
+#{"rJellyfin"},(0xE5A1E050),0,1,0
+%{"SymbianApps"}
+:"SymbianApps"
+
+; S60 3rd Edition product ID: also accepted by FP1, FP2, 5th Edition and
+; Symbian^3 phones
+[0x101F7961],0,0,0,{"S60ProductID"}
+
+; P.I.P.S. (Open C) runtime, Nokia/Symbian-signed (env/fetch-s60v31.sh).
+; S60 3rd FP1 phones such as the E90 do not have it; the installer skips it
+; where the same or a newer version is already present.
+@"..\..\..\..\downloads\s60v31\pips.sis",(0x20013851)
+
+"$(EPOCROOT)epoc32\release\gcce\urel\rjellyfin.exe"                      -"!:\sys\bin\rjellyfin.exe"
+"$(EPOCROOT)epoc32\data\z\resource\apps\rjellyfin.rsc"                   -"!:\resource\apps\rjellyfin.rsc"
+"$(EPOCROOT)epoc32\data\z\private\10003a3f\import\apps\rjellyfin_reg.rsc" -"!:\private\10003a3f\import\apps\rjellyfin_reg.rsc"
+; app icon (SVG)
+"..\..\build\icon\rjellyfin_aif.mif"                                     -"!:\resource\apps\rjellyfin_aif.mif"
+; root certificates for https:// servers (Mozilla's, NetSurf's copy)
+"..\..\build\ca-bundle"                                                        -"!:\private\E5A1E050\ca-bundle"

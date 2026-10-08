@@ -126,6 +126,7 @@ Internet radio for Symbian^3: MP3 streams over HTTP or HTTPS, found through the 
   - minimp3 decodes in floating point, which is far too slow with soft-float library calls. `apps/common/prebuild.sh` therefore builds it as `rsym_mp3.lib` with VFP code (`-mfloat-abi=softfp -mfpu=vfp`), because abld always adds `-msoft-float` after an `.mmp`'s own options.
   - HTTPS streams are checked against Mozilla's root certificates (NetSurf's copy, installed with the app).
 - **Testing:** `C:\Data\rinternetradio-autotest.txt` with a stream URL on its first line plays it at start; `search:<name>` searches the directory instead. In EKA2L1 a 128 kbps SomaFM stream decodes faster than real time and plays without dropouts.
+- **S60 3rd (E90):** in EKA2L1's E90 it plays a 128 kbps stream (see [Older phones](#older-phones-s60-3rd-edition-nokia-e90-e71-n95-)). minimp3 needs the phone's VFP unit, which the E90's ARM11 has; whether it keeps up on the real 330 MHz CPU is untested.
 - **Not yet:** AAC, Ogg Vorbis and Opus streams (many stations use AAC; the directory search shows only MP3 stations for now); HLS; sleep timer; testing on a real phone.
 
 ## rJellyfin
@@ -143,6 +144,7 @@ A client for a [Jellyfin](https://jellyfin.org/) media server: sign in, browse t
   - Artwork is fetched one image at a time, already resized by the server to the list's icon size. The phone's own image decoders (`CImageDecoder`) decode it.
   - Music comes from `/Audio/<id>/universal`, asking for MP3. MP3 files are sent as they are; FLAC, AAC, Opus and so on are converted by the server. They play through the player in `apps/common/audio`. Its *finished* state, and the audio output's "drained" callback, start the next track once the last one has been heard.
 - **Testing:** `env/test-jellyfin.sh start` runs Jellyfin 10.10.7 in Docker on `127.0.0.1:8096`. On first start it creates user `test` (password `test`) and a Music library with an album of test tones: two FLAC tracks and one MP3, with a cover. `C:\Data\rjellyfin-autotest.txt` with `server=`, `user=` and `password=` lines signs in at start; `play=1` then plays the first album. In EKA2L1 it signs in, browses, shows the artwork and plays the whole album, FLAC (converted) and MP3.
+- **S60 3rd (E90):** in EKA2L1's E90 it signs in, browses and plays the whole test album. On a real E90, a 192 kbps stream (the app's transcoding limit) is the heaviest load for its 330 MHz CPU; this is untested.
 - **Not yet:** video (the E7's player wants an MP4 it can stream, so this probably needs a conversion on the server side); seeking; telling the server what is playing; testing on a real phone.
 
 ## Remote debug log
@@ -163,12 +165,15 @@ On the phone, in the app's *Settings*, set *Remote debug host* to the PC's IP ad
 
 ## Older phones: S60 3rd Edition (Nokia E90, E71, N95, ...)
 
-rSSH also builds for S60 3rd Edition FP1 (Symbian OS 9.2). Symbian apps run on newer releases too, so that package should also install on FP2, 5th Edition and Symbian^3 phones.
+rSSH, rInternetRadio and rJellyfin also build for S60 3rd Edition FP1 (Symbian OS 9.2). Symbian apps run on newer releases too, so those packages should also install on FP2, 5th Edition and Symbian^3 phones.
 
 ```sh
 env/fetch-s60v31.sh                      # SDK, Open C and Nokia's pips.sis -> downloads/s60v31/
 ./sym sh env/install-sdk-s60v31.sh       # -> sdk/s60v31 (1.2 GB)
+SYM_SDK=s60v31 ./sym sh env/build.sh apps/common  # shared libraries, first
 SYM_SDK=s60v31 ./sym sh env/build.sh apps/rssh    # -> out/rssh_s60v31.sisx
+SYM_SDK=s60v31 ./sym sh env/build.sh apps/rinternetradio   # -> out/rinternetradio_s60v31.sisx
+SYM_SDK=s60v31 ./sym sh env/build.sh apps/rjellyfin         # -> out/rjellyfin_s60v31.sisx
 ```
 
 - **SDK switch:** `SYM_SDK=s60v31` makes `./sym` use `sdk/s60v31`, and makes `env/build.sh` take its packages from `sis/s60v31/`.

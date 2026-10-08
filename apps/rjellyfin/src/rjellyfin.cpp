@@ -321,9 +321,13 @@ private:
         CreateWindowL();
         iListBox = new (ELeave) CAknDoubleLargeStyleListBox;
         iListBox->ConstructL(this, EAknListBoxSelectionList);
+#ifdef SYMBIAN_CRYPTOSPI
         iListBox->CreateScrollBarFrameL(ETrue);
         iListBox->ScrollBarFrame()->SetScrollBarVisibilityL(
             CEikScrollBarFrame::EOff, CEikScrollBarFrame::EAuto);
+#endif
+        // S60 3rd (Symbian 9.2): no scroll bar, as in rSSH. With one, the
+        // app's thread blocks after the list first draws in EKA2L1.
         iListBox->SetListBoxObserver(this);
         iItems = new (ELeave) CDesCArrayFlat(32);
         iListBox->Model()->SetItemTextArray(iItems);
@@ -1858,7 +1862,11 @@ TKeyResponse CJfList::OfferKeyEventL(const TKeyEvent &aKey, TEventCode aType)
 
 void CJfList::HandleListBoxEventL(CEikListBox *, TListBoxEvent aEvent)
 {
-    if ((aEvent == EEventEnterKeyPressed || aEvent == EEventItemSingleClicked ||
+    if ((aEvent == EEventEnterKeyPressed ||
+#ifdef SYMBIAN_CRYPTOSPI
+         // touch list event: only the Symbian^3 SDK has it, not S60 3rd's 9.2
+         aEvent == EEventItemSingleClicked ||
+#endif
          aEvent == EEventItemDoubleClicked) && gAppUi)
         gAppUi->SelectL(iListBox->CurrentItemIndex());
 }
