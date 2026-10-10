@@ -23,3 +23,5 @@ apps/netsurf/sis/
 apps/common/minimp3/
 apps/rinternetradio/build/
 apps/rjellyfin/build/
+apps/rsharp/build/
+apps/rwifisniffdumper/build/

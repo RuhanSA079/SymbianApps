@@ -54,6 +54,11 @@ apps/netsurf/                  NetSurf browser: symbian/ (app, fetcher, display 
                                src/, expat/, libpng/, libjpeg/ (fetched)
 apps/rinternetradio/           rInternetRadio: src/ (app), data/, prebuild.sh
 apps/rjellyfin/                rJellyfin: Jellyfin client (music), src/, data/, prebuild.sh
+apps/rsharp/                   rSharp: C# scratchpad; engine/ (the interpreter, portable C++),
+                               src/ (app), tests/ (host tests of the interpreter)
+apps/rwifisniffdumper/         rWiFiSniffDumper (work in progress): driver/ (receive-only
+                               RTL8188CUS/8192CU driver, portable C++), host/ (Linux
+                               libusb tool), tests/, tools/gen-tables.py
 env/test-sshd/                 throwaway SSH server for testing rSSH
 env/test-jellyfin.sh           throwaway Jellyfin server (with test music) for rJellyfin
 sym, emu                       wrappers: build container, EKA2L1 emulator
@@ -147,6 +152,50 @@ A client for a [Jellyfin](https://jellyfin.org/) media server: sign in, browse t
 - **S60 3rd (E90):** in EKA2L1's E90 it signs in, browses and plays the whole test album. On a real E90, a 192 kbps stream (the app's transcoding limit) is the heaviest load for its 330 MHz CPU; this is untested.
 - **Not yet:** video (the E7's player wants an MP4 it can stream, so this probably needs a conversion on the server side); seeking; telling the server what is playing; testing on a real phone.
 
+## rSharp
+
+A C# scratchpad, in the spirit of LINQPad and RoslynPad: type C# expressions, statements and LINQ queries on the phone, run them, see the result. There is no .NET on Symbian, so rSharp has its own interpreter for a subset of C#.
+
+- **Using it:**
+  - The last line without `;` is the result, shown as LINQPad would (sequences as lists, objects as `{ A = 1 }`). `Console.WriteLine` and `x.Dump()` write to the output too. Integer results also show their hex and binary digits; *Options > Hex/binary of results* turns that off.
+  - *Run* is the right softkey (or the navigation key's centre). On the output, up/down and left/right scroll and *Back* returns to the code. *Stop* stops a long run.
+  - Errors: the line is shaded red, the cursor goes to it, and the message shows in a red strip above the softkeys until the code is edited. A compile error (a misspelt name or member, a syntax error) stays on the code screen; an exception shows the output first, and the line is marked on *Back*.
+  - In EKA2L1 the editor's cursor isn't drawn (the emulator doesn't implement the text cursor yet); typing still goes where it is.
+  - *Options*: examples, clear, screen orientation, *What works*, About. The code is kept between runs.
+- **The language:**
+  - Supported:
+    - The types `int`, `uint`, `long`, `ulong`, `short`, `ushort`, `byte`, `sbyte`, `char`, `bool`, `float`, `double` and `string`, with C#'s rules: numeric promotion, wrap-around (`OverflowException` in `checked`), constants checked at compile time, integer division, shifts masked to the operand width, `>>>`.
+    - Statements: `var` and typed variables, `if`, `for`, `foreach`, `while`, `do`, `switch` (with patterns), `break`, `continue`, `return`, `throw`.
+    - Local functions, lambdas and closures, `Func<...>`, method groups (`.Select(Math.Sqrt)`).
+    - Tuples (including `(a, b) = (b, a)`), anonymous objects, `is` patterns, switch expressions, `?.`, `??`, `^1`, `a..b`.
+    - Arrays, collection expressions, `List`, `Dictionary`, `HashSet`, `StringBuilder`, string methods, `$"..."` with alignment and formats (`X8`, `N2`, `0.00`, `B` (binary), ...).
+    - `Math`, `Convert` (including bases 2/8/16), `BitOperations` and `int.PopCount` and friends, `Parse` and `TryParse`.
+    - LINQ: methods, lazy as in .NET (`Range(1, int.MaxValue).Where(...).First()` works), and query syntax (`from`, `where`, `let`, `join` (`into`), `orderby`, `group ... by` (`into`)).
+  - Not supported: classes, structs and interfaces, `try`/`catch`, `decimal`, `async`, user generics, reflection, files, the network.
+  - Static typing is approximate: variables keep the type they were declared with (so `double d = 1; d / 2` is 0.5), but some C# compile-time errors (a misspelt member, a wrong argument count) are only found when the line runs; they are then reported as compile errors, and the run's output is dropped, as if it hadn't run.
+- **How it works:**
+  - `apps/rsharp/engine` (about 9,000 lines of portable C++, built as gnu++98 like the rest): lexer, parser, a tree-walking evaluator, the library and LINQ.
+  - All memory a run allocates is in an arena (20 MB at most on the phone), freed when the run ends. Errors `longjmp` back out. Lambda scopes and query rows are reused when nothing captured them, so long LINQ pipelines don't fill the arena.
+  - It runs on a worker thread with a 256 KB stack. Recursion deeper than the stack allows ends with `InsufficientExecutionStackException` instead of a crash.
+- **Testing:**
+  - `apps/rsharp/tests/run-tests.sh` builds the interpreter on the host (with AddressSanitizer and UBSan) and runs `tests/cases.txt`: C# snippets with the output C# gives. `build/rs_test -e 'code'` runs one snippet.
+  - `C:\Data\rsharp-autotest.txt` is run at start, and its output written to `C:\Data\rsharp-autotest-out.txt`. In EKA2L1, the E7 and the E90 give the same output as the host.
+- **Not yet:** syntax colouring; a monospace font; copying the output; testing on a real phone.
+
+## rWiFiSniffDumper (work in progress)
+
+A WiFi scanner and monitor-mode sniffer for the E7, using a cheap Realtek RTL8188CUS/RTL8192CU USB adapter on the USB On-The-Go port. It only listens: it never transmits.
+
+- **The driver:** `apps/rwifisniffdumper/driver` is a receive-only port of Linux rtlwifi's `rtl8192cu` (GPL-2.0), in portable gnu++98 C++.
+  - It loads no firmware. On this chip the 8051 firmware only does rate adaptation and power saving, so a monitor should work without it, but that is untested on hardware.
+  - The MAC's TX engine and TX DMA are never switched on, and all TX queues stay paused, so the adapter cannot send anything, ACKs included. IQ calibration (it loops the transmitter back) and TX power setup are skipped.
+  - The platform provides register access (USB vendor control transfers) and passes in bulk-IN data. The driver returns frames with rate and signal, writes pcap files (radiotap), and reads beacons (SSID, channel, security).
+  - `tools/gen-tables.py` makes `driver/rtlu_tables.cpp` from Linux's `table.c`.
+- **Testing:**
+  - `apps/rwifisniffdumper/tests/run-tests.sh` builds the driver on the host (with AddressSanitizer and UBSan). It tests the EFUSE, RX descriptor, radiotap and beacon parsing, and runs the whole bring-up against a simulated chip, checking that TX is never enabled.
+  - `apps/rwifisniffdumper/host/build.sh` builds `build/host/rwifisniffdumper`, the driver on Linux over libusb. For example, `sudo build/host/rwifisniffdumper -H 1-13 -w scan.pcap` lists the networks heard and writes every frame for Wireshark. Run `lsusb` first to check the adapter is a 92C-family chip (`0bda:8176`, `0bda:8178`, ...): many "8188CUS" dongles are really RTL8188EUS/8188FTV, which this driver does not support.
+- **Not yet:** a test with a real adapter; the Symbian side, which needs a USB host Function Driver Controller plugin (ProtServ + CommDD capabilities, so a hacked phone) plus the USBDI headers from the Symbian Foundation sources; the app.
+
 ## Remote debug log
 
 rSSH, NetSurf, rInternetRadio, rJellyfin (and rDrive, through `rsym_log`) can send their debug log over the network to a PC as it is written, which is the easiest way to follow what happens on a real phone.
@@ -165,7 +214,7 @@ On the phone, in the app's *Settings*, set *Remote debug host* to the PC's IP ad
 
 ## Older phones: S60 3rd Edition (Nokia E90, E71, N95, ...)
 
-rSSH, rInternetRadio and rJellyfin also build for S60 3rd Edition FP1 (Symbian OS 9.2). Symbian apps run on newer releases too, so those packages should also install on FP2, 5th Edition and Symbian^3 phones.
+rSSH, rInternetRadio, rJellyfin and rSharp also build for S60 3rd Edition FP1 (Symbian OS 9.2). Symbian apps run on newer releases too, so those packages should also install on FP2, 5th Edition and Symbian^3 phones.
 
 ```sh
 env/fetch-s60v31.sh                      # SDK, Open C and Nokia's pips.sis -> downloads/s60v31/
@@ -174,6 +223,7 @@ SYM_SDK=s60v31 ./sym sh env/build.sh apps/common  # shared libraries, first
 SYM_SDK=s60v31 ./sym sh env/build.sh apps/rssh    # -> out/rssh_s60v31.sisx
 SYM_SDK=s60v31 ./sym sh env/build.sh apps/rinternetradio   # -> out/rinternetradio_s60v31.sisx
 SYM_SDK=s60v31 ./sym sh env/build.sh apps/rjellyfin         # -> out/rjellyfin_s60v31.sisx
+SYM_SDK=s60v31 ./sym sh env/build.sh apps/rsharp            # -> out/rsharp_s60v31.sisx
 ```
 
 - **SDK switch:** `SYM_SDK=s60v31` makes `./sym` use `sdk/s60v31`, and makes `env/build.sh` take its packages from `sis/s60v31/`.

@@ -1,0 +1,36 @@
+// rsharp.mmp - rSharp: a C# scratchpad for Symbian (experimental).
+// 0xE....... is the unprotected test-UID range: fine for self-signed builds.
+
+TARGET          rsharp.exe
+TARGETTYPE      exe
+UID             0x100039CE 0xE5A1E060
+SECUREID        0xE5A1E060
+VENDORID        0
+CAPABILITY      None
+EPOCSTACKSIZE   0x14000
+EPOCHEAPSIZE    0x10000 0x2000000
+
+USERINCLUDE     ../src ../engine
+SYSTEMINCLUDE   /epoc32/include /epoc32/include/mw /epoc32/include/platform
+SYSTEMINCLUDE   /epoc32/include/platform/mw /epoc32/include/stdapis
+
+SOURCEPATH      ../data
+START RESOURCE  rsharp.rss
+HEADER
+TARGETPATH      /resource/apps
+END
+START RESOURCE  rsharp_reg.rss
+TARGETPATH      /private/10003a3f/import/apps
+END
+
+// the interpreter (portable C++, also built on the host by tests/run-tests.sh)
+SOURCEPATH      ../engine
+SOURCE          rs_lex.cpp rs_parse.cpp rs_eval.cpp rs_lib.cpp rs_linq.cpp rs_fmt.cpp
+
+SOURCEPATH      ../src
+SOURCE          rsharp.cpp
+
+LIBRARY         euser.lib apparc.lib cone.lib eikcore.lib avkon.lib
+LIBRARY         eikdlg.lib eikctl.lib eikcoctl.lib efsrv.lib gdi.lib bafl.lib
+LIBRARY         etext.lib form.lib charconv.lib
+LIBRARY         libc.lib libm.lib

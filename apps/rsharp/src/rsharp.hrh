@@ -1,0 +1,18 @@
+/* rsharp.hrh: command IDs shared by rsharp.rss and the C++ code. */
+#ifndef RSHARP_HRH
+#define RSHARP_HRH
+enum TRsCommand
+    {
+    ERsCmdRun = 0x7201,
+    ERsCmdStop,
+    ERsCmdBack,             /* output -> code */
+    ERsCmdShowOutput,       /* code -> the last output */
+    ERsCmdExamples,
+    ERsCmdClear,
+    ERsCmdViews,            /* hex/binary under integer results: on/off */
+    ERsCmdOrientation,
+    ERsCmdHelp,
+    ERsCmdAbout,
+    ERsCmdExit              /* our own Exit: Avkon turns EAknCmdExit into EEikCmdExit */
+    };
+#endif

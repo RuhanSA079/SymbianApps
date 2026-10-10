@@ -1,0 +1,139 @@
+/* rsharp.rss: rSharp resources. */
+NAME RSHP
+
+#include <eikon.rh>
+#include <avkon.rsg>   /* before avkon.rh: its STRUCT defaults use R_AVKON_* */
+#include <avkon.rh>
+#include <avkon.hrh>
+#include <appinfo.rh>
+#include "../src/rsharp.hrh"
+
+RESOURCE RSS_SIGNATURE {}
+RESOURCE TBUF { buf = ""; }
+
+RESOURCE EIK_APP_INFO
+    {
+    menubar = r_rs_menubar;
+    cba = r_rs_cba_code;
+    }
+
+/* Softkeys. Run (and Back, Stop) are on the right softkey, so they work
+   without the Options menu. */
+RESOURCE CBA r_rs_cba_code
+    {
+    buttons =
+        {
+        CBA_BUTTON { id = EAknSoftkeyOptions; txt = "Options"; },
+        CBA_BUTTON { id = ERsCmdRun; txt = "Run"; }
+        };
+    }
+
+RESOURCE CBA r_rs_cba_output
+    {
+    buttons =
+        {
+        CBA_BUTTON { id = EAknSoftkeyOptions; txt = "Options"; },
+        CBA_BUTTON { id = ERsCmdBack; txt = "Back"; }
+        };
+    }
+
+RESOURCE CBA r_rs_cba_running
+    {
+    buttons =
+        {
+        CBA_BUTTON { id = EAknSoftkeyEmpty; txt = ""; },
+        CBA_BUTTON { id = ERsCmdStop; txt = "Stop"; }
+        };
+    }
+
+RESOURCE MENU_BAR r_rs_menubar
+    {
+    titles = { MENU_TITLE { menu_pane = r_rs_menu; } };
+    }
+
+RESOURCE MENU_PANE r_rs_menu
+    {
+    items =
+        {
+        MENU_ITEM { command = ERsCmdRun; txt = "Run"; },
+        MENU_ITEM { command = ERsCmdBack; txt = "Edit code"; },
+        MENU_ITEM { command = ERsCmdShowOutput; txt = "Show output"; },
+        MENU_ITEM { command = ERsCmdExamples; txt = "Examples"; },
+        MENU_ITEM { command = ERsCmdClear; txt = "Clear code"; },
+        MENU_ITEM { command = ERsCmdViews; txt = "Hex/binary of results"; },
+        MENU_ITEM { command = ERsCmdOrientation; txt = "Screen orientation"; },
+        MENU_ITEM { command = ERsCmdHelp; txt = "What works"; },
+        MENU_ITEM { command = ERsCmdAbout; txt = "About"; },
+        MENU_ITEM { command = ERsCmdExit; txt = "Exit"; }
+        };
+    }
+
+/* The examples: a list to pick from. */
+RESOURCE DIALOG r_rs_list_query
+    {
+    flags = EGeneralQueryFlags;
+    buttons = R_AVKON_SOFTKEYS_OK_CANCEL;
+    items =
+        {
+        DLG_LINE
+            {
+            type = EAknCtListQueryControl;
+            id = EListQueryControl;
+            control = AVKON_LIST_QUERY_CONTROL
+                {
+                listtype = EAknCtSinglePopupMenuListBox;
+                listbox = AVKON_LIST_QUERY_LIST {};
+                heading = "Examples";
+                };
+            }
+        };
+    }
+
+RESOURCE DIALOG r_rs_yesno_query
+    {
+    flags = EGeneralQueryFlags;
+    buttons = R_AVKON_SOFTKEYS_YES_NO;
+    items =
+        {
+        DLG_LINE
+            {
+            type = EAknCtQuery;
+            id = EGeneralQuery;
+            control = AVKON_CONFIRMATION_QUERY
+                {
+                layout = EConfirmationQueryLayout;
+                label = "";
+                };
+            }
+        };
+    }
+
+RESOURCE DIALOG r_rs_ok_query
+    {
+    flags = EGeneralQueryFlags;
+    buttons = R_AVKON_SOFTKEYS_OK_EMPTY;
+    items =
+        {
+        DLG_LINE
+            {
+            type = EAknCtQuery;
+            id = EGeneralQuery;
+            control = AVKON_CONFIRMATION_QUERY
+                {
+                layout = EConfirmationQueryLayout;
+                label = "";
+                };
+            }
+        };
+    }
+
+RESOURCE LOCALISABLE_APP_INFO r_rs_localisable_app_info
+    {
+    short_caption = "rSharp";
+    caption_and_icon = CAPTION_AND_ICON_INFO
+        {
+        caption = "rSharp";
+        number_of_icons = 1;    /* data/rsharp-icon.svg, made by prebuild.sh */
+        icon_file = "\\resource\\apps\\rsharp_aif.mif";
+        };
+    }

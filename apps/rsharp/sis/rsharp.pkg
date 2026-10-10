@@ -1,0 +1,14 @@
+; rSharp installation package (built with: ./sym sh env/build.sh apps/rsharp)
+&EN
+#{"rSharp"},(0xE5A1E060),0,1,0
+%{"SymbianApps"}
+:"SymbianApps"
+
+; Symbian^3 product ID (E7, N8, C7, ...; also covers Anna/Belle)
+[0x20022E6D],0,0,0,{"S60ProductID"}
+
+"$(EPOCROOT)epoc32\release\gcce\urel\rsharp.exe"                      -"!:\sys\bin\rsharp.exe"
+"$(EPOCROOT)epoc32\data\z\resource\apps\rsharp.rsc"                   -"!:\resource\apps\rsharp.rsc"
+"$(EPOCROOT)epoc32\data\z\private\10003a3f\import\apps\rsharp_reg.rsc" -"!:\private\10003a3f\import\apps\rsharp_reg.rsc"
+; app icon (SVG)
+"..\build\icon\rsharp_aif.mif"                                     -"!:\resource\apps\rsharp_aif.mif"

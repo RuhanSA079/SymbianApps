@@ -1,0 +1,21 @@
+; rSharp installation package for S60 3rd Edition FP1 and later (Nokia E90, ...)
+; built with: SYM_SDK=s60v31 ./sym sh env/build.sh apps/rsharp  (or env/build-release.sh)
+&EN
+#{"rSharp"},(0xE5A1E060),0,1,0
+%{"SymbianApps"}
+:"SymbianApps"
+
+; S60 3rd Edition product ID: also accepted by FP1, FP2, 5th Edition and
+; Symbian^3 phones
+[0x101F7961],0,0,0,{"S60ProductID"}
+
+; P.I.P.S. (Open C) runtime, Nokia/Symbian-signed (env/fetch-s60v31.sh).
+; S60 3rd FP1 phones such as the E90 do not have it; the installer skips it
+; where the same or a newer version is already present.
+@"..\..\..\..\downloads\s60v31\pips.sis",(0x20013851)
+
+"$(EPOCROOT)epoc32\release\gcce\urel\rsharp.exe"                      -"!:\sys\bin\rsharp.exe"
+"$(EPOCROOT)epoc32\data\z\resource\apps\rsharp.rsc"                   -"!:\resource\apps\rsharp.rsc"
+"$(EPOCROOT)epoc32\data\z\private\10003a3f\import\apps\rsharp_reg.rsc" -"!:\private\10003a3f\import\apps\rsharp_reg.rsc"
+; app icon (SVG)
+"..\..\build\icon\rsharp_aif.mif"                                     -"!:\resource\apps\rsharp_aif.mif"

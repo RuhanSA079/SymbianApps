@@ -1,0 +1,1143 @@
+Test cases for rSharp's interpreter (tests/run-tests.sh).
+"### name" starts a case: its code, then "---", then the expected output.
+The expected output follows C# (.NET 8/9) semantics; result formatting is
+rSharp's own (LINQPad-like, plain text).
+
+### int division and remainder
+Console.WriteLine(7 / 2);
+Console.WriteLine(-7 / 2);
+Console.WriteLine(-7 % 3);
+Console.WriteLine(7.0 / 2);
+---
+3
+-3
+-1
+3.5
+
+### double shortest round-trip
+Console.WriteLine(1 / 3.0);
+Console.WriteLine(2.0 / 3);
+Console.WriteLine(10.0 / 3);
+Console.WriteLine(0.1 + 0.2);
+Console.WriteLine(1e15);
+Console.WriteLine(1e14);
+Console.WriteLine(0.0001);
+Console.WriteLine(0.00001);
+Console.WriteLine(1.5e300);
+Console.WriteLine(-0.0);
+Console.WriteLine(double.Epsilon);
+Console.WriteLine(double.MaxValue);
+Console.WriteLine(12345678901234567.0);
+---
+0.3333333333333333
+0.6666666666666666
+3.3333333333333335
+0.30000000000000004
+1E+15
+100000000000000
+0.0001
+1E-05
+1.5E+300
+-0
+5E-324
+1.7976931348623157E+308
+12345678901234568
+
+### float
+Console.WriteLine(0.1f + 0.2f);
+Console.WriteLine(1.0f / 3);
+float f = 16777217;
+Console.WriteLine(f);
+Console.WriteLine(1e7f);
+Console.WriteLine(float.MaxValue);
+---
+0.3
+0.33333334
+16777216
+1E+07
+3.4028235E+38
+
+### infinity and NaN
+Console.WriteLine(1.0 / 0);
+Console.WriteLine(-1.0 / 0);
+Console.WriteLine(0.0 / 0);
+---
+∞
+-∞
+NaN
+
+### divide by zero
+int x = 0;
+1 / x
+---
+System.DivideByZeroException: Attempted to divide by zero.
+   at line 2
+
+### unchecked wrap-around
+uint u = 0;
+Console.WriteLine(u - 1);
+long big = long.MaxValue;
+Console.WriteLine(big + 1);
+int m = int.MaxValue;
+Console.WriteLine(m + 1);
+Console.WriteLine(unchecked(int.MaxValue + 1));
+---
+4294967295
+-9223372036854775808
+-2147483648
+-2147483648
+
+### constant overflow is a compile error
+int.MaxValue + 1
+---
+Line 1, column 14: The operation overflows at compile time in checked mode (use unchecked(...))
+
+### checked
+int m = int.MaxValue;
+checked(m + 1)
+---
+System.OverflowException: Arithmetic operation resulted in an overflow.
+   at line 2
+
+### byte arithmetic and compound assignment
+byte b = 255;
+b++;
+Console.WriteLine(b);
+byte c = 200;
+c += 100;
+Console.WriteLine(c);
+short s = 1;
+var r = s + s;
+Console.WriteLine(r.GetType());
+Console.WriteLine(2u - 1);
+---
+0
+44
+System.Int32
+1
+
+### shifts
+Console.WriteLine(5 >> 1);
+Console.WriteLine(-7 >> 1);
+Console.WriteLine(-1 >>> 28);
+Console.WriteLine(1L << 40);
+Console.WriteLine(1 << 32);
+Console.WriteLine(1 << -1);
+uint x = 0x80000000;
+Console.WriteLine(x >> 31);
+int y = -16;
+y >>= 2;
+Console.WriteLine(y);
+---
+2
+-4
+15
+1099511627776
+1
+-2147483648
+1
+-4
+
+### bitwise
+Console.WriteLine(~0u);
+Console.WriteLine(~5);
+Console.WriteLine(0xFF & 0x0F | 0x30);
+Console.WriteLine(0b1010 ^ 0b0110);
+Console.WriteLine(true ^ true);
+---
+4294967295
+-6
+63
+12
+False
+
+### casts
+Console.WriteLine((int)3.99);
+Console.WriteLine((int)-3.99);
+double d = double.NaN;
+Console.WriteLine((int)d);
+double huge = 1e20;
+Console.WriteLine((int)huge);
+Console.WriteLine(unchecked((sbyte)200));
+Console.WriteLine((char)65);
+Console.WriteLine((int)'A');
+Console.WriteLine((char)('a' + 1));
+Console.WriteLine('a' + 1);
+---
+3
+-3
+0
+2147483647
+-56
+A
+65
+b
+98
+
+### constant cast overflow
+(sbyte)200
+---
+Line 1, column 1: The operation overflows at compile time in checked mode (use unchecked(...))
+
+### implicit conversions
+double d = 5;
+Console.WriteLine(d / 2);
+long l = int.MaxValue;
+Console.WriteLine(l + 1);
+byte b = 10;
+Console.WriteLine(b);
+int i = 1.5;
+---
+2.5
+2147483648
+10
+
+System.InvalidCastException: Cannot implicitly convert type 'double' to 'int'. An explicit conversion exists (are you missing a cast?)
+   at line 7
+
+### Math
+Console.WriteLine(Math.Round(2.5));
+Console.WriteLine(Math.Round(3.5));
+Console.WriteLine(Math.Round(2.5, MidpointRounding.AwayFromZero));
+Console.WriteLine(Math.Round(1.2345, 2));
+Console.WriteLine(Math.Max(3, 7L));
+Console.WriteLine(Math.Abs(-5));
+Console.WriteLine(Math.Pow(2, 10));
+Console.WriteLine(Math.Sqrt(16));
+Console.WriteLine(Math.PI);
+Console.WriteLine(Math.Floor(-2.5));
+Console.WriteLine(Math.Clamp(15, 0, 10));
+Console.WriteLine(Math.Sign(-3.2));
+Console.WriteLine(Math.DivRem(17, 5));
+---
+2
+4
+3
+1.23
+7
+5
+1024
+4
+3.141592653589793
+-3
+10
+-1
+(3, 2)
+
+### Math.Abs overflow
+int m = int.MinValue;
+Math.Abs(m)
+---
+System.OverflowException: Negating the minimum value of a twos complement number is invalid.
+   at line 2
+
+### Convert
+Console.WriteLine(Convert.ToInt32(2.5));
+Console.WriteLine(Convert.ToInt32(3.5));
+Console.WriteLine(Convert.ToInt32("ff", 16));
+Console.WriteLine(Convert.ToInt32("FFFFFFFF", 16));
+Console.WriteLine(Convert.ToString(255, 16));
+Console.WriteLine(Convert.ToString(-8, 2));
+Console.WriteLine(Convert.ToString((byte)5, 2));
+Console.WriteLine(Convert.ToInt64("1010", 2));
+Console.WriteLine(Convert.ToBoolean("True"));
+---
+2
+4
+255
+-1
+ff
+11111111111111111111111111111000
+101
+10
+True
+
+### number formats
+Console.WriteLine(string.Format("{0:D5} {1:X} {2:N2}", 42, 255, 1234.5));
+Console.WriteLine((255).ToString("B8"));
+Console.WriteLine((5).ToString("B8"));
+Console.WriteLine((-1).ToString("X"));
+Console.WriteLine(((short)-1).ToString("X"));
+Console.WriteLine((255).ToString("x4"));
+Console.WriteLine((1234567.891).ToString("N0"));
+Console.WriteLine((0.256).ToString("P1"));
+Console.WriteLine((12345.678).ToString("E2"));
+Console.WriteLine((3.14159).ToString("0.00"));
+Console.WriteLine((5).ToString("000"));
+Console.WriteLine((1234.5).ToString("#,##0.00"));
+Console.WriteLine((0.5).ToString("#.##"));
+Console.WriteLine((-5).ToString("D3"));
+Console.WriteLine((2.5).ToString("F0"));
+---
+00042 FF 1,234.50
+11111111
+00000101
+FFFFFFFF
+FFFF
+00ff
+1,234,568
+25.6 %
+1.23E+004
+3.14
+005
+1,234.50
+.5
+-005
+2
+
+### interpolation
+var name = "World";
+Console.WriteLine($"Hello, {name}!");
+Console.WriteLine($"{Math.PI:F2}|{42,5}|{42,-5}|");
+Console.WriteLine($"{{braces}} {1 + 2}");
+Console.WriteLine($"{(name.Length > 3 ? "long" : "short")}");
+Console.WriteLine($@"C:\{name}");
+---
+Hello, World!
+3.14|   42|42   |
+{braces} 3
+long
+C:\World
+
+### strings
+Console.WriteLine("Hello, World".Substring(7));
+Console.WriteLine("Hello".IndexOf('l'));
+Console.WriteLine("Hello".LastIndexOf("l"));
+Console.WriteLine("  x  ".Trim().Length);
+Console.WriteLine("abc" + 1 + 2);
+Console.WriteLine(1 + 2 + "abc");
+Console.WriteLine("x".PadLeft(3, '.'));
+Console.WriteLine(string.Join("-", new[] { 1, 2, 3 }));
+Console.WriteLine("a-b-c".Replace("-", ""));
+Console.WriteLine("Hello".ToUpper().ToLower());
+Console.WriteLine("hello".Contains("ell"));
+Console.WriteLine(new string('*', 5));
+Console.WriteLine(new string("abc".Reverse().ToArray()));
+Console.WriteLine("hello"[1..^1]);
+Console.WriteLine(string.IsNullOrEmpty(""));
+Console.WriteLine("a,b".Split(',').Length);
+---
+World
+2
+3
+1
+abc12
+3abc
+..x
+1-2-3
+abc
+hello
+True
+*****
+cba
+ell
+True
+2
+
+### split
+"a,b,,c".Split(',')
+---
+string[] (4 items)
+a
+b
+
+c
+
+### split options
+"a, b,,c".Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+---
+string[] (3 items)
+a
+b
+c
+
+### split remove empty
+"a,b,,c".Split(',', StringSplitOptions.RemoveEmptyEntries).Length
+---
+3
+
+### chars of a string
+"abc".Reverse()
+---
+IEnumerable<char> (3 items)
+c, b, a
+
+### parse
+Console.WriteLine(int.Parse("-123") * 2);
+Console.WriteLine(int.TryParse("42", out var n) ? n : -1);
+Console.WriteLine(int.TryParse("x", out var k) ? k : -1);
+Console.WriteLine(double.Parse("1.5e3"));
+int.Parse("abc")
+---
+-246
+42
+-1
+1500
+
+System.FormatException: The input string 'abc' was not in a correct format.
+   at line 5
+
+### parse overflow
+int.Parse("99999999999")
+---
+System.OverflowException: Value was either too large or too small for an Int32.
+   at line 1
+
+### bit operations
+Console.WriteLine(BitOperations.PopCount(255u));
+Console.WriteLine(BitOperations.LeadingZeroCount(1u));
+Console.WriteLine(BitOperations.TrailingZeroCount(8));
+Console.WriteLine(BitOperations.RotateLeft(0x80000001u, 1));
+Console.WriteLine(int.PopCount(-1));
+Console.WriteLine(BitOperations.Log2(1024u));
+Console.WriteLine(BitOperations.IsPow2(64));
+Console.WriteLine(uint.RotateRight(1u, 1));
+Console.WriteLine(long.LeadingZeroCount(1L));
+---
+8
+31
+3
+3
+32
+10
+True
+2147483648
+63
+
+### Select
+Enumerable.Range(1, 5).Select(x => x * x)
+---
+IEnumerable<int> (5 items)
+1, 4, 9, 16, 25
+
+### Where OrderBy Select
+var xs = new[] { 5, 3, 8, 1 };
+xs.Where(x => x > 2).OrderBy(x => x).Select(x => x * 10)
+---
+IEnumerable<int> (3 items)
+30, 50, 80
+
+### aggregates
+Console.WriteLine(new[] { 3, 1, 2 }.OrderByDescending(x => x).First());
+Console.WriteLine(new[] { 1, 2, 3, 4 }.Aggregate((a, b) => a * b));
+Console.WriteLine(new[] { 1, 2, 3 }.Aggregate(10, (acc, x) => acc + x));
+Console.WriteLine(new[] { 1, 2, 3 }.Average());
+Console.WriteLine(new[] { "b", "a", "c" }.Max());
+Console.WriteLine(new[] { 5, 5, 6 }.Distinct().Count());
+Console.WriteLine(new[] { 1, 2, 3 }.Any(x => x > 2));
+Console.WriteLine(new[] { 1, 2, 3 }.All(x => x > 0));
+Console.WriteLine(new[] { 1, 2, 3 }.Contains(2));
+Console.WriteLine(new int[] { }.FirstOrDefault());
+Console.WriteLine(new[] { 1, 2, 3 }.FirstOrDefault(x => x > 5));
+Console.WriteLine(new[] { "a" }.FirstOrDefault(x => x == "b") ?? "none");
+Console.WriteLine(Enumerable.Range(1, 1000000).Select(x => (long)x * x).Sum());
+Console.WriteLine(Enumerable.Range(1, 5).Aggregate("", (s, x) => s + x));
+Console.WriteLine("hello world".Count(c => c == 'o'));
+Console.WriteLine(new[] { "aaa", "b", "cc" }.MinBy(s => s.Length));
+Console.WriteLine(Enumerable.Empty<int>().Count());
+---
+3
+24
+16
+2
+c
+2
+True
+True
+True
+0
+0
+none
+333333833333500000
+12345
+2
+b
+0
+
+### ToList
+Enumerable.Range(1, 10).Where(x => x % 3 == 0).ToList()
+---
+List<int> (3 items)
+3, 6, 9
+
+### lazy evaluation
+Enumerable.Range(1, int.MaxValue).Where(x => x % 1000 == 0).First()
+---
+1000
+
+### average of nothing
+new int[0].Average()
+---
+System.InvalidOperationException: Sequence contains no elements
+   at line 1
+
+### Single with two matches
+new[] { 1, 2, 3 }.Single(x => x > 1)
+---
+System.InvalidOperationException: Sequence contains more than one matching element
+   at line 1
+
+### Sum overflows (checked)
+new[] { int.MaxValue, 1 }.Sum()
+---
+System.OverflowException: Arithmetic operation resulted in an overflow.
+   at line 1
+
+### Select with index
+Enumerable.Range(0, 5).Select((x, i) => x * i)
+---
+IEnumerable<int> (5 items)
+0, 1, 4, 9, 16
+
+### method group
+new[] { 4.0, 9.0 }.Select(Math.Sqrt)
+---
+IEnumerable<double> (2 items)
+2, 3
+
+### Zip
+new[] { 1, 2, 3 }.Zip(new[] { "a", "b", "c" })
+---
+IEnumerable<(int, string)> (3 items)
+(1, a)
+(2, b)
+(3, c)
+
+### Zip with function
+new[] { 1, 2, 3 }.Zip(new[] { 10, 20, 30 }, (a, b) => a + b)
+---
+IEnumerable<int> (3 items)
+11, 22, 33
+
+### Chunk
+Enumerable.Range(1, 7).Chunk(3)
+---
+IEnumerable<int[]> (3 items)
+[1, 2, 3]
+[4, 5, 6]
+[7]
+
+### Skip Take TakeLast Concat Reverse
+Console.WriteLine(string.Join(",", new[] { 1, 2, 3, 4, 5 }.Skip(1).Take(3)));
+Console.WriteLine(string.Join(",", new[] { 1, 2, 3, 4, 5 }.TakeLast(2)));
+Console.WriteLine(string.Join(",", new[] { 1, 2 }.Concat(new[] { 3 }).Reverse()));
+Console.WriteLine(string.Join(",", new[] { 1, 2, 3 }.Union(new[] { 3, 4 })));
+Console.WriteLine(string.Join(",", new[] { 1, 2, 3 }.Intersect(new[] { 3, 4 })));
+Console.WriteLine(string.Join(",", new[] { 1, 2, 3 }.Except(new[] { 3, 4 })));
+Console.WriteLine(string.Join(",", Enumerable.Repeat("ab", 3)));
+Console.WriteLine(string.Join(",", new[] { 1, 2, 3, 4 }.SkipWhile(x => x < 3)));
+Console.WriteLine(string.Join(",", new[] { 1, 2, 3, 4 }.TakeWhile(x => x < 3)));
+Console.WriteLine(string.Join(",", new[] { 1, 2 }.Append(3).Prepend(0)));
+---
+2,3,4
+4,5
+3,2,1
+1,2,3,4
+3
+1,2
+ab,ab,ab
+3,4
+1,2
+0,1,2,3
+
+### GroupBy
+new[] { 1, 2, 3, 4, 5, 6 }.GroupBy(x => x % 3)
+---
+IEnumerable<IGrouping<int, int>> (3 items)
+1: [1, 4]
+2: [2, 5]
+0: [3, 6]
+
+### ToDictionary
+new[] { "a", "bb" }.ToDictionary(s => s, s => s.Length)
+---
+Dictionary<string, int> (2 items)
+a: 1
+bb: 2
+
+### missing dictionary key
+new Dictionary<string, int>()["x"]
+---
+System.Collections.Generic.KeyNotFoundException: The given key 'x' was not present in the dictionary.
+   at line 1
+
+### OrderBy ThenByDescending
+new[] { "bb", "a", "ccc", "dd" }.OrderBy(s => s.Length).ThenByDescending(s => s)
+---
+IEnumerable<string> (4 items)
+a
+dd
+bb
+ccc
+
+### culture-aware string order
+new[] { "b", "B", "a", "A" }.OrderBy(s => s)
+---
+IEnumerable<string> (4 items)
+a
+A
+b
+B
+
+### SelectMany
+new[] { "ab", "cd" }.SelectMany(s => s)
+---
+IEnumerable<char> (4 items)
+a, b, c, d
+
+### Join method
+var a = new[] { (1, "one"), (2, "two") };
+var b = new[] { (1, "uno"), (3, "tres") };
+a.Join(b, x => x.Item1, y => y.Item1, (x, y) => x.Item2 + "=" + y.Item2)
+---
+IEnumerable<string> (1 item)
+one=uno
+
+### OfType Cast
+Console.WriteLine(string.Join(",", new object[] { 1, "a", 2 }.OfType<int>()));
+Console.WriteLine(new object[] { 1, 2 }.Cast<int>().Sum());
+---
+1,2
+3
+
+### query: where select anonymous
+from x in Enumerable.Range(1, 5) where x % 2 == 1 select new { x, Sq = x * x }
+---
+IEnumerable<{ x, Sq }> (3 items)
+{ x = 1, Sq = 1 }
+{ x = 3, Sq = 9 }
+{ x = 5, Sq = 25 }
+
+### query: two froms
+from a in Enumerable.Range(1, 3)
+from b in Enumerable.Range(1, 3)
+where a < b
+select (a, b)
+---
+IEnumerable<(int, int)> (3 items)
+(1, 2)
+(1, 3)
+(2, 3)
+
+### query: let
+from s in new[] { "a", "bb", "ccc" }
+let n = s.Length
+where n > 1
+select $"{s}:{n}"
+---
+IEnumerable<string> (2 items)
+bb:2
+ccc:3
+
+### query: orderby descending
+from x in new[] { 3, 1, 2 } orderby x descending select x
+---
+IEnumerable<int> (3 items)
+3, 2, 1
+
+### query: orderby two keys
+from w in new[] { "pear", "fig", "apple", "kiwi" }
+orderby w.Length, w
+select w
+---
+IEnumerable<string> (4 items)
+fig
+kiwi
+pear
+apple
+
+### query: join
+var cats = new[] { new { Id = 1, Name = "Fruit" }, new { Id = 2, Name = "Veg" } };
+var items = new[] { new { Cat = 1, Name = "Apple" }, new { Cat = 1, Name = "Pear" }, new { Cat = 2, Name = "Kale" } };
+from c in cats join i in items on c.Id equals i.Cat select c.Name + ":" + i.Name
+---
+IEnumerable<string> (3 items)
+Fruit:Apple
+Fruit:Pear
+Veg:Kale
+
+### query: join into
+var cats = new[] { new { Id = 1, Name = "Fruit" }, new { Id = 2, Name = "Veg" } };
+var items = new[] { new { Cat = 1, Name = "Apple" }, new { Cat = 1, Name = "Pear" }, new { Cat = 2, Name = "Kale" } };
+from c in cats
+join i in items on c.Id equals i.Cat into g
+select new { c.Name, Count = g.Count() }
+---
+IEnumerable<{ Name, Count }> (2 items)
+{ Name = Fruit, Count = 2 }
+{ Name = Veg, Count = 1 }
+
+### query: group into
+from n in Enumerable.Range(1, 10)
+group n by n % 2 == 0 into g
+select new { Even = g.Key, Sum = g.Sum() }
+---
+IEnumerable<{ Even, Sum }> (2 items)
+{ Even = False, Sum = 25 }
+{ Even = True, Sum = 30 }
+
+### query: group
+from n in new[] { 1, 2, 3 } group n * 10 by n % 2
+---
+IEnumerable<IGrouping<int, int>> (2 items)
+1: [10, 30]
+0: [20]
+
+### query: group of words
+var words = new[] { "apple", "banana", "avocado", "cherry", "blueberry" };
+from w in words group w by w[0] into g orderby g.Key select new { Letter = g.Key, Count = g.Count(), Words = g }
+---
+IEnumerable<{ Letter, Count, Words }> (3 items)
+{ Letter = a, Count = 2, Words = [apple, avocado] }
+{ Letter = b, Count = 2, Words = [banana, blueberry] }
+{ Letter = c, Count = 1, Words = [cherry] }
+
+### query is lazy and re-runs
+var list = new List<int> { 1, 2 };
+var q = from x in list select x * 10;
+list.Add(3);
+q.Sum()
+---
+60
+
+### foreach break continue
+var sum = 0;
+foreach (var x in Enumerable.Range(1, 10))
+{
+    if (x % 2 == 0) continue;
+    if (x > 7) break;
+    sum += x;
+}
+sum
+---
+16
+
+### loops
+int i = 0;
+do { i += 3; } while (i < 10);
+Console.WriteLine(i);
+var n = 0;
+while (true) { if (++n == 5) break; }
+Console.WriteLine(n);
+for (int a = 0, b = 10; a < b; a += 3, b -= 3) Console.Write($"{a}-{b} ");
+---
+12
+5
+0-10 3-7
+
+### switch statement with patterns
+string Kind(int n)
+{
+    switch (n)
+    {
+        case 0: return "zero";
+        case < 0: return "neg";
+        case 1 or 2: return "small";
+        default: return "big";
+    }
+}
+string.Join(",", new[] { -1, 0, 1, 5 }.Select(Kind))
+---
+neg,zero,small,big
+
+### switch expression
+int n = 15;
+n switch { < 0 => "neg", 0 => "zero", > 10 and < 20 => "teen", _ => "other" }
+---
+teen
+
+### is patterns
+object o = 42;
+Console.WriteLine(o is int i && i > 40);
+Console.WriteLine(o is string);
+Console.WriteLine(o is not null);
+string s = null;
+Console.WriteLine(s is null);
+---
+True
+False
+True
+True
+
+### tuples
+int a = 1, b = 2;
+(a, b) = (b, a);
+Console.WriteLine($"{a} {b}");
+var t = (Name: "x", Age: 3);
+Console.WriteLine(t.Age + t.Item2);
+Console.WriteLine(t);
+Console.WriteLine((1, 2) == (1, 2));
+---
+2 1
+6
+(x, 3)
+True
+
+### closures
+var counter = 0;
+Func<int> next = () => ++counter;
+next();
+next();
+Console.WriteLine(counter);
+var fs = new List<Func<int>>();
+for (int i = 0; i < 3; i++) fs.Add(() => i);
+Console.WriteLine(string.Join(",", fs.Select(f => f())));
+var gs = new List<Func<int>>();
+foreach (var i in new[] { 0, 1, 2 }) gs.Add(() => i);
+Console.WriteLine(string.Join(",", gs.Select(f => f())));
+---
+2
+3,3,3
+0,1,2
+
+### typed lambda
+Func<double, double> half = x => x / 2;
+Func<int, int, int> add = (a, b) => a + b;
+Console.WriteLine(half(5));
+Console.WriteLine(add(2, 3));
+---
+2.5
+5
+
+### local functions
+int Fib(int n) => n < 2 ? n : Fib(n - 1) + Fib(n - 2);
+long Fact(int n) { long r = 1; for (int i = 2; i <= n; i++) r *= i; return r; }
+double Avg(params int[] xs) => xs.Average();
+Console.WriteLine(Fib(20));
+Console.WriteLine(Fact(20));
+Console.WriteLine(IsEven(10));
+bool IsEven(int n) => n % 2 == 0;
+---
+6765
+2432902008176640000
+True
+
+### deep recursion
+int Down(int n) => n == 0 ? 0 : Down(n - 1);
+Down(1000000)
+---
+System.InsufficientExecutionStackException: Insufficient stack to continue: the recursion is too deep.
+
+### List
+var l = new List<int> { 3, 1, 2 };
+l.Add(5);
+l.Remove(1);
+l.Sort();
+l
+---
+List<int> (3 items)
+2, 3, 5
+
+### List methods
+var l = new List<string> { "pear", "fig", "apple" };
+l.Insert(0, "kiwi");
+Console.WriteLine(l.Count);
+Console.WriteLine(l.IndexOf("fig"));
+Console.WriteLine(l.Find(s => s.StartsWith("a")));
+Console.WriteLine(l.RemoveAll(s => s.Length == 4));
+l.Sort((x, y) => y.CompareTo(x));
+Console.WriteLine(string.Join(",", l));
+l.Reverse();
+Console.WriteLine(string.Join(",", l));
+---
+4
+2
+apple
+2
+fig,apple
+apple,fig
+
+### Dictionary
+var d = new Dictionary<string, int>();
+d["a"] = 1;
+d["a"] += 5;
+d.Add("b", 2);
+Console.WriteLine(d.TryGetValue("a", out var v) ? v : -1);
+Console.WriteLine(d.ContainsKey("c"));
+Console.WriteLine(d.Count);
+foreach (var kv in d) Console.WriteLine($"{kv.Key}={kv.Value}");
+Console.WriteLine(string.Join(",", d.Keys));
+d.Add("a", 3);
+---
+6
+False
+2
+a=6
+b=2
+a,b
+
+System.ArgumentException: An item with the same key has already been added. Key: a
+   at line 10
+
+### Dictionary initializer
+var d = new Dictionary<string, int> { ["x"] = 1, { "y", 2 } };
+d
+---
+Dictionary<string, int> (2 items)
+x: 1
+y: 2
+
+### HashSet
+var hs = new HashSet<int> { 1, 2, 2, 3 };
+Console.WriteLine(hs.Count);
+Console.WriteLine(hs.Add(3));
+Console.WriteLine(hs.Contains(2));
+hs.UnionWith(new[] { 9 });
+hs
+---
+3
+False
+True
+
+HashSet<int> (4 items)
+1, 2, 3, 9
+
+### StringBuilder
+var sb = new StringBuilder();
+for (int i = 0; i < 3; i++) sb.Append(i).Append(';');
+sb.AppendLine("end");
+sb.ToString()
+---
+0;1;2;end
+
+### arrays
+var a = new int[3];
+a[1] = 5;
+a
+---
+int[] (3 items)
+0, 5, 0
+
+### index from end and ranges
+var a = new[] { 1, 2, 3, 4, 5 };
+a[^1] + a[1..3].Sum()
+---
+10
+
+### array bounds
+new[] { 1 }[5]
+---
+System.IndexOutOfRangeException: Index was outside the bounds of the array (index 5, length 1).
+   at line 1
+
+### Array statics
+var a = new[] { 5, 2, 9 };
+Array.Sort(a);
+Console.WriteLine(string.Join(",", a));
+Array.Reverse(a);
+Console.WriteLine(string.Join(",", a));
+Console.WriteLine(Array.IndexOf(a, 2));
+---
+2,5,9
+9,5,2
+2
+
+### jagged arrays
+int[][] grid = new int[2][];
+grid[0] = new[] { 1, 2 };
+grid[1] = new int[] { 3 };
+grid.Sum(r => r.Sum())
+---
+6
+
+### collection expressions
+int[] a = [1, 2, 3];
+List<int> l = [.. a, 4];
+l
+---
+List<int> (4 items)
+1, 2, 3, 4
+
+### null handling
+string s = null;
+Console.WriteLine(s?.Length ?? -1);
+s ??= "set";
+Console.WriteLine(s);
+int? n = null;
+Console.WriteLine(n + 1 == null);
+Console.WriteLine(s.Length);
+s = null;
+s.Length
+---
+-1
+set
+True
+3
+
+System.NullReferenceException: Object reference not set to an instance of an object (reading Length).
+   at line 9
+
+### Console output of values
+Console.WriteLine(1.5);
+Console.WriteLine(true);
+Console.WriteLine('c');
+Console.WriteLine(new[] { 1 });
+Console.WriteLine(new { A = 1, B = "x" });
+Console.WriteLine((1, "x"));
+Console.WriteLine(new List<string>());
+Console.WriteLine();
+Console.Write("no newline");
+---
+1.5
+True
+c
+System.Int32[]
+{ A = 1, B = x }
+(1, x)
+System.Collections.Generic.List`1[System.String]
+
+no newline
+
+### Dump
+new[] { 1, 2 }.Dump("nums");
+5
+---
+nums
+int[] (2 items)
+1, 2
+
+5
+
+### output then result
+Console.WriteLine("hi");
+42
+---
+hi
+
+42
+
+### no result for void
+Console.WriteLine("only")
+---
+only
+
+### using directives
+using System;
+using System.Linq;
+using static System.Math;
+
+1 + 1
+---
+2
+
+### anonymous objects
+var p = new { Name = "Ann", Age = 30 };
+var q = new { Name = "Ann", Age = 30 };
+Console.WriteLine(p.Equals(q));
+Console.WriteLine(p == q);
+Console.WriteLine(p);
+p
+---
+True
+False
+{ Name = Ann, Age = 30 }
+
+{ Name = Ann, Age = 30 }
+
+### throw
+throw new ArgumentException("bad value");
+---
+System.ArgumentException: bad value
+   at line 1
+
+### unknown name
+foo + 1
+---
+Line 1, column 1: The name 'foo' does not exist in the current context
+
+### syntax error
+1 +
+---
+Line 1, column 4: Expression expected, found 'end of input'
+
+### missing semicolon
+var x = 1
+x
+---
+Line 2, column 1: ';' expected, found 'x'
+
+### decimal is not supported
+1.5m
+---
+Line 1, column 1: decimal is not supported in rSharp; use double
+
+### comments
+// a comment
+var x = 2; /* inline */ x * 21
+---
+42
+
+### int views [views]
+-6
+---
+-6
+int · 0xFFFFFFFA
+0b1111_1111_1111_1111_1111_1111_1111_1010
+
+### positive int views [views]
+0x2A
+---
+42
+int · 0x2A
+0b0010_1010
+
+### long views [views]
+255L
+---
+255
+long · 0xFF
+0b1111_1111
+
+### byte views [views]
+(byte)5
+---
+5
+byte · 0x5
+0b0101
+
+### char views [views]
+'A'
+---
+A
+char · U+0041 · 65
+
+### double views [views]
+0.5
+---
+0.5
+double
+
+### string result
+"plain text"
+---
+plain text
+
+### uint with int constants
+uint u = 0;
+Console.WriteLine(u - 1);
+Console.WriteLine((u - 1).GetType());
+int i = 1;
+Console.WriteLine((u - i).GetType());
+Console.WriteLine(u > 0);
+---
+4294967295
+System.UInt32
+System.Int64
+False
+
+### constant uint overflow
+1u - 2
+---
+Line 1, column 4: The operation overflows at compile time in checked mode (use unchecked(...))
+
+### misspelt member is a compile error
+var s = "abc";
+Console.WriteLine("not shown");
+s.Lenght
+---
+Line 3, column 2: 'string' does not contain a definition for 'Lenght'
+
+### wrong argument count is a compile error
+Math.Sqrt(1, 2)
+---
+Line 1, column 10: No overload for method 'Sqrt' takes 2 arguments
